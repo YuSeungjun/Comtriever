@@ -1,4 +1,4 @@
-const { app, BrowserWindow, clipboard, ipcMain, powerMonitor, screen, shell } = require('electron');
+const { app, BrowserWindow, Menu, Tray, clipboard, ipcMain, nativeImage, powerMonitor, screen, shell } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { execFile } = require('node:child_process');
@@ -9,6 +9,7 @@ const DEFAULT_STATE = {
   petPosition: null,
   petSize: 'medium',
   wanderEnabled: true,
+  launchAtLogin: true,
 };
 
 const WANDER_DELAY_MIN_MS = 3000;
@@ -46,6 +47,8 @@ const CURSOR_NEARBY_PULSE_MIN_MS = 4000;
 const CURSOR_NEARBY_PULSE_MAX_MS = 8000;
 const CURSOR_NEAR_RETRY_INTERVAL_MS = 900;
 const CURSOR_NEAR_RETRY_WINDOW_MS = 2500;
+const LOGIN_LAUNCH_ARG = '--comtriever-login-launch';
+const LOGIN_LAUNCH_ARGS = [LOGIN_LAUNCH_ARG];
 const WORK_APP_REACTIONS = {
   coding: ['코딩 중이야?', '버그 잡는 중?', '좋은 코드 냄새나'],
   browsing: ['자료 찾는 중?', '뭐 보고 있어?', '탭이 많아졌어'],
@@ -83,6 +86,7 @@ if (process.platform === 'darwin') {
 
 let settingsWindow;
 let petWindow;
+let tray;
 let state = { ...DEFAULT_STATE };
 let appReactionTimer;
 let clipboardTimer;
@@ -116,11 +120,17 @@ let cursorNearRetryUntil = 0;
 let lastCursorNearAttemptAt = 0;
 
 function createSettingsWindow() {
+  if (isUsableWindow(settingsWindow)) {
+    settingsWindow.show();
+    settingsWindow.focus();
+    return;
+  }
+
   settingsWindow = new BrowserWindow({
     width: 340,
-    height: 590,
+    height: 670,
     minWidth: 320,
-    minHeight: 560,
+    minHeight: 640,
     title: 'Comtriever',
     resizable: false,
     maximizable: false,
@@ -133,7 +143,98 @@ function createSettingsWindow() {
   settingsWindow.loadFile(path.join(__dirname, 'settings.html'));
   settingsWindow.on('closed', () => {
     settingsWindow = null;
+    updateTrayMenu();
   });
+}
+
+function createTray() {
+  if (tray || process.platform !== 'darwin') return;
+
+  const trayIcon = nativeImage.createFromPath(getTrayIconPath());
+  if (!trayIcon.isEmpty()) trayIcon.setTemplateImage(true);
+
+  tray = new Tray(trayIcon);
+  tray.setToolTip('Comtriever');
+  tray.on('click', () => {
+    openSettingsWindow();
+  });
+  updateTrayMenu();
+}
+
+function getTrayIconPath() {
+  const developmentTrayIconPath = path.join(__dirname, '..', 'build', 'trayTemplate.png');
+  if (!app.isPackaged && fs.existsSync(developmentTrayIconPath)) return developmentTrayIconPath;
+
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'trayTemplate.png');
+  }
+  return path.join(__dirname, '..', 'logo', 'MenuBarIcon_RetrieverFace.png');
+}
+
+function updateTrayMenu() {
+  if (!tray) return;
+
+  tray.setContextMenu(Menu.buildFromTemplate([
+    {
+      label: '설정 열기',
+      click: openSettingsWindow,
+    },
+    { type: 'separator' },
+    {
+      label: '리트리버 보이기',
+      enabled: !state.petVisible,
+      click: showPetFromMenu,
+    },
+    {
+      label: '리트리버 숨기기',
+      enabled: state.petVisible,
+      click: hidePetFromMenu,
+    },
+    {
+      label: '집으로 보내기',
+      enabled: state.petVisible,
+      click: sendPetHome,
+    },
+    {
+      label: '다시 부르기',
+      click: callPetBack,
+    },
+    { type: 'separator' },
+    {
+      label: 'Comtriever 종료',
+      click: quitFromMenu,
+    },
+  ]));
+}
+
+function openSettingsWindow() {
+  createSettingsWindow();
+}
+
+function showPetFromMenu() {
+  if (!state.petVisible) {
+    callPetBack();
+    return;
+  }
+
+  applyDisplayMode();
+  broadcastState();
+}
+
+function hidePetFromMenu() {
+  if (!state.petVisible) return;
+
+  markPetAwake();
+  stopSendHomeAnimation();
+  stopWander({ notifyRenderer: true });
+  state.petVisible = false;
+  saveState();
+  hidePetWindow();
+  broadcastState();
+}
+
+function quitFromMenu() {
+  app.quit();
 }
 
 function createPetWindow() {
@@ -192,6 +293,7 @@ function broadcastState() {
   const payload = normalizeStateForRenderer();
   sendToWindow(settingsWindow, 'state:changed', payload);
   sendToWindow(petWindow, 'state:changed', payload);
+  updateTrayMenu();
 }
 
 function isUsableWindow(targetWindow) {
@@ -227,6 +329,7 @@ function loadState() {
   try {
     const parsedState = JSON.parse(fs.readFileSync(stateFilePath, 'utf8'));
     const needsWanderMigration = typeof parsedState.wanderEnabled !== 'boolean';
+    const needsLaunchAtLoginMigration = typeof parsedState.launchAtLogin !== 'boolean';
     state = {
       ...DEFAULT_STATE,
       ...parsedState,
@@ -239,8 +342,11 @@ function loadState() {
       wanderEnabled: typeof parsedState.wanderEnabled === 'boolean'
         ? parsedState.wanderEnabled
         : DEFAULT_STATE.wanderEnabled,
+      launchAtLogin: typeof parsedState.launchAtLogin === 'boolean'
+        ? parsedState.launchAtLogin
+        : DEFAULT_STATE.launchAtLogin,
     };
-    if (needsWanderMigration) saveState();
+    if (needsWanderMigration || needsLaunchAtLoginMigration) saveState();
   } catch {
     state = { ...DEFAULT_STATE };
   }
@@ -263,7 +369,27 @@ function normalizeStateForRenderer() {
     petPosition: state.petPosition,
     petSize: state.petSize,
     wanderEnabled: state.wanderEnabled,
+    launchAtLogin: state.launchAtLogin,
   };
+}
+
+function applyLaunchAtLoginSetting() {
+  if (process.platform !== 'darwin' || !app.isPackaged) return;
+
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: state.launchAtLogin,
+      args: LOGIN_LAUNCH_ARGS,
+    });
+  } catch {
+    // Login item registration should not block the desktop pet itself.
+  }
+}
+
+function showPetAfterLoginLaunch() {
+  if (!process.argv.includes(LOGIN_LAUNCH_ARG) || state.launchAtLogin === false) return;
+  state.petVisible = true;
+  saveState();
 }
 
 function applyDisplayMode() {
@@ -844,6 +970,16 @@ function setWanderEnabled(wanderEnabled) {
   broadcastState();
 }
 
+function setLaunchAtLogin(launchAtLogin) {
+  if (typeof launchAtLogin !== 'boolean') return;
+  if (state.launchAtLogin === launchAtLogin) return;
+
+  state.launchAtLogin = launchAtLogin;
+  saveState();
+  applyLaunchAtLoginSetting();
+  broadcastState();
+}
+
 function callPetBack() {
   markPetAwake();
   stopSendHomeAnimation();
@@ -1166,6 +1302,9 @@ function movePetWindow(x, y) {
 app.whenReady().then(() => {
   app.setName('Comtriever');
   loadState();
+  showPetAfterLoginLaunch();
+  applyLaunchAtLoginSetting();
+  createTray();
   createSettingsWindow();
   createPetWindow();
 
@@ -1201,6 +1340,7 @@ ipcMain.on('pet:callBack', callPetBack);
 ipcMain.on('pet:setDisplayMode', (_event, displayMode) => setDisplayMode(displayMode));
 ipcMain.on('pet:setSize', (_event, petSize) => setPetSize(petSize));
 ipcMain.on('pet:setWanderEnabled', (_event, wanderEnabled) => setWanderEnabled(wanderEnabled));
+ipcMain.on('pet:setLaunchAtLogin', (_event, launchAtLogin) => setLaunchAtLogin(launchAtLogin));
 ipcMain.on('pet:interruptMotion', stopPetMotionForInteraction);
 ipcMain.on('pet:sleepStarted', handlePetSleepStarted);
 ipcMain.on('pet:awake', markPetAwake);

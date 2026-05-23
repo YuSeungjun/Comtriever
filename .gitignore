@@ -4,4 +4,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 dist/
-build/
+build/*
+!build/.gitkeep
+!build/entitlements.mac.plist
+!build/entitlements.mac.inherit.plist

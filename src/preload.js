@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('comtriever', {
   setDisplayMode: (mode) => ipcRenderer.send('pet:setDisplayMode', mode),
   setPetSize: (size) => ipcRenderer.send('pet:setSize', size),
   setWanderEnabled: (enabled) => ipcRenderer.send('pet:setWanderEnabled', enabled),
+  setLaunchAtLogin: (enabled) => ipcRenderer.send('pet:setLaunchAtLogin', enabled),
   interruptPetMotion: () => ipcRenderer.send('pet:interruptMotion'),
   updatePosition: (position) => ipcRenderer.send('pet:updatePosition', position),
   startPetDrag: (pointer) => ipcRenderer.send('pet:dragStart', pointer),

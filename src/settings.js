@@ -7,6 +7,7 @@ const smallSizeButton = document.querySelector('#smallSizeButton');
 const mediumSizeButton = document.querySelector('#mediumSizeButton');
 const largeSizeButton = document.querySelector('#largeSizeButton');
 const wanderToggle = document.querySelector('#wanderToggle');
+const launchAtLoginToggle = document.querySelector('#launchAtLoginToggle');
 const sizeButtons = {
   small: smallSizeButton,
   medium: mediumSizeButton,
@@ -24,6 +25,7 @@ function renderState(state) {
 
   const petSize = state.petSize ?? 'medium';
   wanderToggle.checked = state.wanderEnabled !== false;
+  launchAtLoginToggle.checked = state.launchAtLogin !== false;
 
   for (const [size, button] of Object.entries(sizeButtons)) {
     button.setAttribute('aria-pressed', String(size === petSize));
@@ -54,6 +56,10 @@ for (const [size, button] of Object.entries(sizeButtons)) {
 
 wanderToggle.addEventListener('change', () => {
   window.comtriever.setWanderEnabled(wanderToggle.checked);
+});
+
+launchAtLoginToggle.addEventListener('change', () => {
+  window.comtriever.setLaunchAtLogin(launchAtLoginToggle.checked);
 });
 
 window.comtriever.onStateChanged(renderState);

@@ -5,8 +5,12 @@
   "main": "src/main.js",
   "scripts": {
     "assets:prepare": "node scripts/prepare-retriever-assets.js",
+    "icons:prepare": "node scripts/prepare-mac-assets.js",
     "start": "electron .",
-    "check": "node --check src/main.js && node --check src/preload.js && node --check src/settings.js && node --check src/pet.js && node --check scripts/prepare-retriever-assets.js"
+    "check": "node --check src/main.js && node --check src/preload.js && node --check src/settings.js && node --check src/pet.js && node --check scripts/prepare-retriever-assets.js && node --check scripts/prepare-mac-assets.js && node --check scripts/check-mac-signing-env.js",
+    "dist": "npm run dist:mac:unsigned",
+    "dist:mac": "node scripts/check-mac-signing-env.js && npm run icons:prepare && electron-builder --mac dmg --universal",
+    "dist:mac:unsigned": "npm run icons:prepare && electron-builder --mac dmg --universal -c.forceCodeSigning=false -c.mac.identity=- -c.mac.notarize=false -c.mac.hardenedRuntime=false"
   },
   "keywords": [
     "desktop-pet",
@@ -15,7 +19,68 @@
   ],
   "author": "",
   "license": "MIT",
+  "build": {
+    "appId": "com.yuseungjun.comtriever",
+    "productName": "Comtriever",
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "forceCodeSigning": true,
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/trayTemplate.png",
+        "to": "trayTemplate.png"
+      },
+      {
+        "from": "build/trayTemplate@2x.png",
+        "to": "trayTemplate@2x.png"
+      }
+    ],
+    "asar": true,
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+      "notarize": true,
+      "extendInfo": {
+        "LSUIElement": true
+      },
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ]
+    },
+    "dmg": {
+      "title": "Comtriever ${version}",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  },
   "devDependencies": {
-    "electron": "^31.7.7"
+    "electron": "^31.7.7",
+    "electron-builder": "^26.8.1",
+    "png2icons": "^2.0.1"
   }
 }
