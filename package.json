@@ -1,0 +1,21 @@
+{
+  "name": "comtriever",
+  "version": "0.1.0",
+  "description": "A small retriever desktop companion for macOS.",
+  "main": "src/main.js",
+  "scripts": {
+    "assets:prepare": "node scripts/prepare-retriever-assets.js",
+    "start": "electron .",
+    "check": "node --check src/main.js && node --check src/preload.js && node --check src/settings.js && node --check src/pet.js && node --check scripts/prepare-retriever-assets.js"
+  },
+  "keywords": [
+    "desktop-pet",
+    "electron",
+    "macos"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^31.7.7"
+  }
+}

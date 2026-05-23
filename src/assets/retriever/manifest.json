@@ -1,0 +1,234 @@
+{
+  "frameWidth": 600,
+  "frameHeight": 600,
+  "frameCount": 4,
+  "defaultAnimation": "idle",
+  "style": "photoroom-png-retriever",
+  "animations": {
+    "idle": {
+      "frames": [
+        "./assets/retriever/retriever-idle-1.png",
+        "./assets/retriever/retriever-idle-2.png",
+        "./assets/retriever/retriever-idle-3.png",
+        "./assets/retriever/retriever-idle-4.png"
+      ],
+      "frameWidth": 600,
+      "frameHeight": 600,
+      "frameCount": 4,
+      "fps": 6,
+      "loop": true
+    },
+    "walk": {
+      "frames": [
+        "./assets/retriever/retriever-walk-1.png",
+        "./assets/retriever/retriever-walk-2.png",
+        "./assets/retriever/retriever-walk-3.png",
+        "./assets/retriever/retriever-walk-4.png"
+      ],
+      "frameWidth": 600,
+      "frameHeight": 600,
+      "frameCount": 4,
+      "fps": 10,
+      "loop": true
+    },
+    "goHome": {
+      "frames": [
+        "./assets/retriever/retriever-go-home-1.png",
+        "./assets/retriever/retriever-go-home-2.png",
+        "./assets/retriever/retriever-go-home-3.png",
+        "./assets/retriever/retriever-go-home-4.png"
+      ],
+      "frameWidth": 600,
+      "frameHeight": 600,
+      "frameCount": 4,
+      "fps": 10,
+      "loop": true
+    },
+    "popIn": {
+      "frames": [
+        "./assets/retriever/retriever-pop-in-1.png",
+        "./assets/retriever/retriever-pop-in-2.png",
+        "./assets/retriever/retriever-pop-in-3.png",
+        "./assets/retriever/retriever-pop-in-4.png"
+      ],
+      "frameWidth": 600,
+      "frameHeight": 600,
+      "frameCount": 4,
+      "fps": 13,
+      "loop": false
+    },
+    "happy": {
+      "frames": [
+        "./assets/retriever/retriever-happy-1.png",
+        "./assets/retriever/retriever-happy-2.png",
+        "./assets/retriever/retriever-happy-3.png",
+        "./assets/retriever/retriever-happy-4.png"
+      ],
+      "frameWidth": 600,
+      "frameHeight": 600,
+      "frameCount": 4,
+      "fps": 8,
+      "loop": false
+    },
+    "sleep": {
+      "frames": [
+        "./assets/retriever/retriever-sleep-1.png",
+        "./assets/retriever/retriever-sleep-2.png",
+        "./assets/retriever/retriever-sleep-3.png",
+        "./assets/retriever/retriever-sleep-4.png"
+      ],
+      "frameWidth": 600,
+      "frameHeight": 600,
+      "frameCount": 4,
+      "fps": 4,
+      "loop": true
+    },
+    "tailWag": {
+      "frames": [
+        "./assets/retriever/retriever-tail-wag-1.png",
+        "./assets/retriever/retriever-tail-wag-2.png",
+        "./assets/retriever/retriever-tail-wag-3.png",
+        "./assets/retriever/retriever-tail-wag-4.png"
+      ],
+      "frameWidth": 600,
+      "frameHeight": 600,
+      "frameCount": 4,
+      "fps": 10,
+      "loop": false
+    },
+    "yawn": {
+      "frames": [
+        "./assets/retriever/retriever-yawn-1.png",
+        "./assets/retriever/retriever-yawn-2.png",
+        "./assets/retriever/retriever-yawn-3.png",
+        "./assets/retriever/retriever-yawn-4.png"
+      ],
+      "frameWidth": 600,
+      "frameHeight": 600,
+      "frameCount": 4,
+      "fps": 8,
+      "loop": false
+    },
+    "pressedHold": {
+      "frames": [
+        "./assets/retriever/retriever-pressed-1.png"
+      ],
+      "frameWidth": 724,
+      "frameHeight": 724,
+      "frameCount": 1,
+      "fps": 1,
+      "loop": true
+    },
+    "pressedLeft": {
+      "frames": [
+        "./assets/retriever/retriever-pressed-2.png"
+      ],
+      "frameWidth": 724,
+      "frameHeight": 724,
+      "frameCount": 1,
+      "fps": 1,
+      "loop": true
+    },
+    "pressedRight": {
+      "frames": [
+        "./assets/retriever/retriever-pressed-3.png"
+      ],
+      "frameWidth": 724,
+      "frameHeight": 724,
+      "frameCount": 1,
+      "fps": 1,
+      "loop": true
+    },
+    "retrieveCopy": {
+      "frames": [
+        "./assets/retriever/retriever-retrieve-copy-1.png",
+        "./assets/retriever/retriever-retrieve-copy-2.png",
+        "./assets/retriever/retriever-retrieve-copy-3.png",
+        "./assets/retriever/retriever-retrieve-copy-4.png"
+      ],
+      "frameWidth": 600,
+      "frameHeight": 600,
+      "frameCount": 4,
+      "fps": 9,
+      "loop": false
+    },
+    "headTilt": {
+      "frames": [
+        "./assets/retriever/retriever-head-tilt-1.png",
+        "./assets/retriever/retriever-head-tilt-2.png",
+        "./assets/retriever/retriever-head-tilt-3.png",
+        "./assets/retriever/retriever-head-tilt-4.png"
+      ],
+      "frameWidth": 600,
+      "frameHeight": 600,
+      "frameCount": 4,
+      "fps": 8,
+      "loop": false
+    },
+    "cheerSit": {
+      "frames": [
+        "./assets/retriever/retriever-cheer-sit-1.png",
+        "./assets/retriever/retriever-cheer-sit-2.png",
+        "./assets/retriever/retriever-cheer-sit-3.png",
+        "./assets/retriever/retriever-cheer-sit-4.png"
+      ],
+      "frameWidth": 600,
+      "frameHeight": 600,
+      "frameCount": 4,
+      "fps": 7,
+      "loop": false
+    },
+    "nod": {
+      "frames": [
+        "./assets/retriever/retriever-nod-1.png",
+        "./assets/retriever/retriever-nod-2.png",
+        "./assets/retriever/retriever-nod-3.png",
+        "./assets/retriever/retriever-nod-4.png"
+      ],
+      "frameWidth": 600,
+      "frameHeight": 600,
+      "frameCount": 4,
+      "fps": 8,
+      "loop": false
+    },
+    "celebrate": {
+      "frames": [
+        "./assets/retriever/retriever-celebrate-1.png",
+        "./assets/retriever/retriever-celebrate-2.png",
+        "./assets/retriever/retriever-celebrate-3.png",
+        "./assets/retriever/retriever-celebrate-4.png"
+      ],
+      "frameWidth": 600,
+      "frameHeight": 600,
+      "frameCount": 4,
+      "fps": 9,
+      "loop": false
+    },
+    "sniffSearch": {
+      "frames": [
+        "./assets/retriever/retriever-sniff-search-1.png",
+        "./assets/retriever/retriever-sniff-search-2.png",
+        "./assets/retriever/retriever-sniff-search-3.png",
+        "./assets/retriever/retriever-sniff-search-4.png"
+      ],
+      "frameWidth": 600,
+      "frameHeight": 600,
+      "frameCount": 4,
+      "fps": 8,
+      "loop": false
+    },
+    "trashPickup": {
+      "frames": [
+        "./assets/retriever/retriever-trash-pickup-1.png",
+        "./assets/retriever/retriever-trash-pickup-2.png",
+        "./assets/retriever/retriever-trash-pickup-3.png",
+        "./assets/retriever/retriever-trash-pickup-4.png"
+      ],
+      "frameWidth": 600,
+      "frameHeight": 600,
+      "frameCount": 4,
+      "fps": 8,
+      "loop": false
+    }
+  }
+}

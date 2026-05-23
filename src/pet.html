@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Comtriever Pet</title>
+    <link rel="stylesheet" href="./pet.css" />
+  </head>
+  <body>
+    <div class="stage" id="stage">
+      <div class="home" id="home">⌂</div>
+      <button class="pet" id="pet" type="button" aria-label="Comtriever">
+        <span class="sprite-wrap" id="spriteWrap">
+          <span class="sprite" id="sprite"></span>
+        </span>
+      </button>
+      <div class="bubble" id="bubble">멍!</div>
+      <div class="file-menu" id="fileMenu" aria-hidden="true">
+        <div class="file-menu-prompt">이 파일을 어떻게 할까멍!</div>
+        <div class="file-menu-actions" id="fileMenuActions">
+          <button class="file-action" id="openFileAction" type="button">열기</button>
+          <button class="file-action" id="copyPathAction" type="button">경로 복사</button>
+          <button class="file-action danger" id="trashFileAction" type="button">휴지통</button>
+        </div>
+      </div>
+    </div>
+    <script src="./pet.js"></script>
+  </body>
+</html>

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Comtriever</title>
+    <link rel="stylesheet" href="./settings.css" />
+  </head>
+  <body>
+    <main class="panel">
+      <header class="header">
+        <div>
+          <p class="eyebrow">Comtriever</p>
+          <h1>작은 리트리버</h1>
+        </div>
+        <div class="status" id="petStatus">대기 중</div>
+      </header>
+
+      <section class="section">
+        <button class="primary-action" id="sendHomeButton" type="button">
+          <span class="action-icon">⌂</span>
+          <span>
+            <strong>리트리버 집으로 보내기</strong>
+            <small>집으로 걸어간 뒤 화면에서 사라집니다.</small>
+          </span>
+        </button>
+        <button class="secondary-action" id="callBackButton" type="button">
+          <span class="action-icon">↺</span>
+          <span>
+            <strong>다시 부르기</strong>
+            <small>바탕화면으로 리트리버를 다시 불러옵니다.</small>
+          </span>
+        </button>
+      </section>
+
+      <section class="section">
+        <h2>크기</h2>
+        <div class="size-group" role="radiogroup" aria-label="리트리버 크기">
+          <button class="size-button" id="smallSizeButton" type="button" aria-pressed="false">작게</button>
+          <button class="size-button" id="mediumSizeButton" type="button" aria-pressed="true">중간</button>
+          <button class="size-button" id="largeSizeButton" type="button" aria-pressed="false">크게</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>동작</h2>
+        <label class="switch-row" for="wanderToggle">
+          <span>
+            <strong>혼자 산책하기</strong>
+            <small>켜면 idle 상태에서 가끔 짧게 걷습니다.</small>
+          </span>
+          <input class="switch-input" id="wanderToggle" type="checkbox" checked />
+          <span class="switch-track" aria-hidden="true">
+            <span class="switch-thumb"></span>
+          </span>
+        </label>
+      </section>
+
+      <section class="section">
+        <h2>표시 방식</h2>
+        <div class="mode-group" role="radiogroup" aria-label="표시 방식">
+          <button class="mode-button" id="alwaysOnTopButton" type="button" aria-pressed="true">
+            <span>항상 위에 표시</span>
+            <small>Chrome 같은 작업창 위에도 보입니다.</small>
+          </button>
+          <button class="mode-button" id="desktopOnlyButton" type="button" aria-pressed="false">
+            <span>작업창 가리지 않기</span>
+            <small>작업 앱이 앞에 있으면 창 뒤에 머뭅니다.</small>
+          </button>
+        </div>
+      </section>
+    </main>
+    <script src="./settings.js"></script>
+  </body>
+</html>
