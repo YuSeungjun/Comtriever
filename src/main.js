@@ -98,6 +98,7 @@ let wanderMoveTimer;
 let isWandering = false;
 let isSleeping = false;
 let petDrag;
+let petWindowUsesPanel = false;
 let stateFilePath;
 let lastFrontmostAppName = "";
 let activeWorkAppName = "";
@@ -237,25 +238,19 @@ function quitFromMenu() {
   app.quit();
 }
 
-function createPetWindow() {
-  const display = screen.getPrimaryDisplay();
-  const workArea = display.workArea;
-  const windowSize = getPetWindowSize();
-  const initialPosition = clampWindowPosition(
-    state.petPosition?.x ?? workArea.x + Math.round(workArea.width * 0.62),
-    state.petPosition?.y ?? workArea.y + Math.round(workArea.height * 0.68),
-    windowSize,
-    workArea,
-  );
+function shouldUsePanelForDisplayMode(displayMode) {
+  return process.platform === 'darwin' && displayMode === 'alwaysOnTop';
+}
 
-  petWindow = new BrowserWindow({
+function getPetWindowOptions(initialPosition, windowSize) {
+  const usePanel = shouldUsePanelForDisplayMode(state.displayMode);
+  const options = {
     width: windowSize.width,
     height: windowSize.height,
     x: initialPosition.x,
     y: initialPosition.y,
     frame: false,
     transparent: true,
-    type: process.platform === 'darwin' ? 'panel' : undefined,
     acceptFirstMouse: true,
     resizable: false,
     hasShadow: false,
@@ -267,26 +262,68 @@ function createPetWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
-  });
+  };
 
-  petWindow.setIgnoreMouseEvents(false);
-  petWindow.loadFile(path.join(__dirname, 'pet.html'));
-  petWindow.on('closed', () => {
+  if (usePanel) options.type = 'panel';
+  return { options, usePanel };
+}
+
+function createPetWindow() {
+  const display = screen.getPrimaryDisplay();
+  const workArea = display.workArea;
+  const windowSize = getPetWindowSize();
+  const initialPosition = clampWindowPosition(
+    state.petPosition?.x ?? workArea.x + Math.round(workArea.width * 0.62),
+    state.petPosition?.y ?? workArea.y + Math.round(workArea.height * 0.68),
+    windowSize,
+    workArea,
+  );
+
+  const { options, usePanel } = getPetWindowOptions(initialPosition, windowSize);
+  petWindow = new BrowserWindow(options);
+  petWindowUsesPanel = usePanel;
+  const createdPetWindow = petWindow;
+
+  createdPetWindow.setIgnoreMouseEvents(false);
+  createdPetWindow.loadFile(path.join(__dirname, 'pet.html'));
+  createdPetWindow.on('closed', () => {
     stopCursorProximityWatcher();
     stopSendHomeAnimation();
     stopWander();
     petDrag = null;
-    petWindow = null;
+    if (petWindow === createdPetWindow) petWindow = null;
   });
-  petWindow.once('ready-to-show', () => {
+  createdPetWindow.once('ready-to-show', () => {
+    if (petWindow !== createdPetWindow) return;
     applyDisplayMode();
-    if (state.petVisible) showPetInactive();
     scheduleWander();
     startWorkAppWatcher();
     startClipboardWatcher();
     startSystemIdleWatcher();
     startCursorProximityWatcher();
   });
+}
+
+function recreatePetWindowForDisplayMode() {
+  if (!isUsableWindow(petWindow)) {
+    createPetWindow();
+    return;
+  }
+
+  const previousWindow = petWindow;
+  const currentBounds = previousWindow.getBounds();
+  state.petPosition = { x: currentBounds.x, y: currentBounds.y };
+  saveState();
+
+  stopCursorProximityWatcher();
+  stopSendHomeAnimation();
+  stopWander({ notifyRenderer: true });
+  petDrag = null;
+  petWindow = null;
+
+  previousWindow.removeAllListeners('closed');
+  if (!previousWindow.isDestroyed()) previousWindow.destroy();
+  createPetWindow();
 }
 
 function broadcastState() {
@@ -925,7 +962,11 @@ function setDisplayMode(displayMode) {
   stopWander({ notifyRenderer: true });
   state.displayMode = displayMode;
   saveState();
-  applyDisplayMode();
+  if (process.platform === 'darwin' && petWindowUsesPanel !== shouldUsePanelForDisplayMode(displayMode)) {
+    recreatePetWindowForDisplayMode();
+  } else {
+    applyDisplayMode();
+  }
   broadcastState();
 }
 
