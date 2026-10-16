@@ -7,82 +7,102 @@
     <link rel="stylesheet" href="./settings.css" />
   </head>
   <body>
+    <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <symbol id="i-paw" viewBox="0 0 24 24"><path d="M8 13.5c1.1-2.2 2.2-3.5 4-3.5s2.9 1.3 4 3.5c1.3 1.1 2 2.2 2 3.5 0 2.8-2.4 3.5-6 2-3.6 1.5-6 .8-6-2 0-1.3.7-2.4 2-3.5Z"/><ellipse cx="5" cy="9" rx="2" ry="2.6" transform="rotate(-20 5 9)"/><ellipse cx="10" cy="5.5" rx="2" ry="2.6"/><ellipse cx="15" cy="5.5" rx="2" ry="2.6"/><ellipse cx="20" cy="9" rx="2" ry="2.6" transform="rotate(20 20 9)"/></symbol>
+        <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20.2 4.5 13C1.9 10.5 2 6.5 4.7 4.8c2.5-1.6 5.3-.6 7.3 1.8 2-2.4 4.8-3.4 7.3-1.8 2.7 1.7 2.8 5.7.2 8.2Z"/></symbol>
+        <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 5h2m4 0h2"/></symbol>
+        <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h4m6 0h6M4 17h10m6 0h0"/><circle cx="11" cy="7" r="3"/><circle cx="17" cy="17" r="3"/></symbol>
+        <symbol id="i-bone" viewBox="0 0 24 24"><g transform="rotate(-35 12 12)"><path d="M8 8.5h8c.3-1.9 2.5-2.8 4-1.5 1.5 1.3 1.2 3.5-.3 5 1.5 1.5 1.8 3.7.3 5-1.5 1.3-3.7.4-4-1.5H8c-.3 1.9-2.5 2.8-4 1.5-1.5-1.3-1.2-3.5.3-5-1.5-1.5-1.8-3.7-.3-5 1.5-1.3 3.7-.4 4 1.5Z"/><circle cx="10.5" cy="12" r=".6" fill="currentColor" stroke="none"/><circle cx="13.5" cy="12" r=".6" fill="currentColor" stroke="none"/></g></symbol>
+        <symbol id="i-ball" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M6 6c4.5 2.8 4.5 9.2 0 12M18 6c-4.5 2.8-4.5 9.2 0 12" transform="rotate(-25 12 12)" fill="none"/></symbol>
+        <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
+        <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m8 5 7 7-7 7"/></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+        <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8M5 10v10h5v-6h4v6h5V10"/></symbol>
+        <symbol id="i-return" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/></symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+        <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/></symbol>
+      </defs>
+    </svg>
     <main class="panel">
-      <header class="header">
-        <div>
-          <p class="eyebrow">Comtriever</p>
-          <h1>작은 리트리버</h1>
-        </div>
-        <div class="status" id="petStatus">대기 중</div>
-      </header>
+      <div class="app-chrome">
+        <header class="header">
+          <div class="brand">
+            <img class="brand-mark" src="../logo/AppIcon_RetrieverFace.png" alt="" draggable="false" />
+            <div><h1>comtriever<span class="brand-period">.</span></h1><p>컴퓨터 속 나만의 리트리버</p></div>
+          </div>
+        </header>
+        <nav class="tabs" aria-label="홈 메뉴">
+          <button type="button" data-tab="today" aria-controls="todayPanel" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#i-paw" /></svg>함께하기</button>
+          <button type="button" data-tab="reminders" aria-controls="remindersPanel" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-calendar" /></svg>일정<span id="dueCount"></span></button>
+          <button type="button" data-tab="preferences" aria-controls="preferencesPanel" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-settings" /></svg>설정</button>
+        </nav>
+      </div>
 
-      <section class="section">
-        <button class="primary-action" id="sendHomeButton" type="button">
-          <span class="action-icon">⌂</span>
-          <span>
-            <strong>리트리버 집으로 보내기</strong>
-            <small>집으로 걸어간 뒤 화면에서 사라집니다.</small>
-          </span>
-        </button>
-        <button class="secondary-action" id="callBackButton" type="button">
-          <span class="action-icon">↺</span>
-          <span>
-            <strong>다시 부르기</strong>
-            <small>바탕화면으로 리트리버를 다시 불러옵니다.</small>
-          </span>
-        </button>
-      </section>
+      <div id="todayPanel" class="tab-panel">
+        <section class="welcome-card" aria-label="나의 리트리버">
+          <div class="welcome-copy"><p class="eyebrow" id="bondDays">오늘 처음 만났어요</p><h2><span id="welcomeGreeting">오늘도</span><br /><span id="welcomeMessage">네 곁에 있을게</span></h2><p class="welcome-caption">당신과 함께하는 친구</p></div>
+          <span class="welcome-orbit" aria-hidden="true"></span>
+          <svg class="welcome-spark icon" aria-hidden="true"><use href="#i-spark" /></svg>
+          <img class="welcome-pet" src="./assets/retriever/retriever-idle-1.png" alt="빨간 리본을 맨 나의 리트리버" draggable="false" />
+        </section>
+        <section class="section bond-card">
+          <div class="bond-heading"><span class="bond-heart"><svg class="icon" aria-hidden="true"><use href="#i-heart" /></svg></span><div><p class="eyebrow">우리 사이</p><h2 id="bondTitle">첫 만남</h2></div><span id="bondLevel">Lv. 1</span></div>
+          <progress id="bondProgress" value="0" max="25" aria-label="다음 친밀도 레벨까지"></progress>
+          <p class="muted" id="bondDetail">서로 알아가는 중이에요.</p>
+          <div class="bond-stats"><div><svg class="icon" aria-hidden="true"><use href="#i-heart" /></svg><span id="petCount">쓰다듬기 0</span></div><div><svg class="icon" aria-hidden="true"><use href="#i-ball" /></svg><span id="playCount">함께 놀기 0</span></div><div><svg class="icon" aria-hidden="true"><use href="#i-check" /></svg><span id="doneCount">일정 완료 0</span></div></div>
+        </section>
+        <section class="play-section">
+          <div class="section-heading"><h2>리트리버 행동</h2><span>잠깐이어도 좋아요</span></div>
+          <div class="play-actions">
+            <button type="button" id="giveSnackButton" class="snack-action"><svg class="play-icon icon" aria-hidden="true"><use href="#i-bone" /></svg><span><strong>간식 던지기</strong><small>맛있는 간식</small></span></button>
+            <button type="button" id="playBallButton" class="ball-action"><svg class="play-icon icon" aria-hidden="true"><use href="#i-ball" /></svg><span><strong>공놀이</strong><small>공을 던져주세요</small></span></button>
+            <button type="button" id="sendHomeButton" class="home-action"><svg class="play-icon icon" aria-hidden="true"><use href="#i-home" /></svg><span><strong>집으로 보내기</strong><small>집에서 쉬기</small></span></button>
+            <button type="button" id="callBackButton" class="return-action"><svg class="play-icon icon" aria-hidden="true"><use href="#i-return" /></svg><span><strong>다시 부르기</strong><small>다시 함께하기</small></span></button>
+          </div>
+          <div class="fullness-row"><label for="fullnessProgress">배고픔</label><progress id="fullnessProgress" value="30" max="100"></progress><span id="fullnessText">30%</span></div>
+          <button class="text-button" id="stopCompanionButton" type="button" disabled>놀이 그만하기</button>
+        </section>
+        <details class="guide section">
+          <summary><span class="guide-mark" aria-hidden="true">*</span><span>리트리버와 친해지는 방법</span><svg class="guide-chevron icon" aria-hidden="true"><use href="#i-chevron" /></svg></summary>
+          <div class="guide-content"><p><strong>살살 쓰다듬기</strong>누른 채 머리·몸·배를 살살 문질러 주세요.</p><p><strong>안아주고 내려놓기</strong>가만히 0.4초 누른 뒤 옮겨보세요. 움직이다 놓으면 폴짝 날아가 사뿐히 내려와요.</p><p><strong>공 다시 던지기</strong>공을 주우면 그 자리에서 물고 기다려요. 입 앞의 공을 잡아 다시 던져주세요. 한 번 주울 때마다 배고픔 게이지가 노란색으로 5%p 줄어들고, 0%가 되면 배고파서 쉬어요. 놀이 중에는 그만 버튼으로 끝낼 수 있어요.</p><p><strong>창 위에서 쉬기</strong>창 윗부분으로 들어 올려 놓아주세요. 창을 옮기면 따라가고, 닫으면 내려와요.</p><small>강아지를 우클릭하면 놀이 메뉴를 고정할 수 있어요.</small></div>
+        </details>
+      </div>
 
-      <section class="section">
-        <h2>크기</h2>
-        <div class="size-group" role="radiogroup" aria-label="리트리버 크기">
-          <button class="size-button" id="smallSizeButton" type="button" aria-pressed="false">작게</button>
-          <button class="size-button" id="mediumSizeButton" type="button" aria-pressed="true">중간</button>
-          <button class="size-button" id="largeSizeButton" type="button" aria-pressed="false">크게</button>
-        </div>
-      </section>
+      <div id="remindersPanel" class="tab-panel" hidden>
+        <section class="section reminder-compose">
+          <form id="reminderForm">
+            <div class="field"><label for="reminderText">무엇을 기억할까요?</label><input id="reminderText" maxlength="80" required placeholder="잠깐 일어나서 스트레칭하기" autocomplete="off" /></div>
+            <div class="form-columns"><div class="field"><label for="reminderAt">알려줄 시간</label><input id="reminderAt" type="datetime-local" required /></div><div class="field"><label for="reminderRepeat">반복</label><select id="reminderRepeat"><option value="none">한 번만</option><option value="daily">매일 이 시간</option><option value="weekly">매주 이 요일</option></select></div></div>
+            <div class="quick-times"><svg class="icon" aria-hidden="true"><use href="#i-clock" /></svg><button type="button" data-minutes="10">10분 뒤</button><button type="button" data-minutes="30">30분 뒤</button><button type="button" data-minutes="60">1시간 뒤</button></div>
+            <button class="form-submit" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg>일정 추가</button>
+            <p id="reminderFeedback" class="feedback" role="status"></p>
+          </form>
+          <p class="form-note">앱이 켜져 있을 때 알려드려요.<br />놓친 일정은 다음에 앱을 열면 다시 확인할 수 있어요.</p>
+        </section>
+        <section class="schedule-section"><div class="section-heading"><h2>나의 일정</h2><span id="scheduleCount">0개의 약속</span></div><div id="reminderList" class="reminder-list"></div></section>
+      </div>
 
-      <section class="section">
-        <h2>동작</h2>
-        <label class="switch-row" for="wanderToggle">
-          <span>
-            <strong>혼자 산책하기</strong>
-            <small>켜면 idle 상태에서 가끔 짧게 걷습니다.</small>
-          </span>
-          <input class="switch-input" id="wanderToggle" type="checkbox" checked />
-          <span class="switch-track" aria-hidden="true">
-            <span class="switch-thumb"></span>
-          </span>
-        </label>
-      </section>
-
-      <section class="section">
-        <h2>시작</h2>
-        <label class="switch-row" for="launchAtLoginToggle">
-          <span>
-            <strong>Mac 켤 때 자동 실행</strong>
-            <small>켜면 로그인 후 리트리버가 자동으로 나타납니다.</small>
-          </span>
-          <input class="switch-input" id="launchAtLoginToggle" type="checkbox" checked />
-          <span class="switch-track" aria-hidden="true">
-            <span class="switch-thumb"></span>
-          </span>
-        </label>
-      </section>
-
-      <section class="section">
-        <h2>표시 방식</h2>
-        <div class="mode-group" role="radiogroup" aria-label="표시 방식">
-          <button class="mode-button" id="alwaysOnTopButton" type="button" aria-pressed="true">
-            <span>항상 위에 표시</span>
-            <small>Chrome 같은 작업창 위에도 보입니다.</small>
-          </button>
-          <button class="mode-button" id="desktopOnlyButton" type="button" aria-pressed="false">
-            <span>작업창 가리지 않기</span>
-            <small>작업 앱이 앞에 있으면 창 뒤에 머뭅니다.</small>
-          </button>
-        </div>
-      </section>
+      <div id="preferencesPanel" class="tab-panel" hidden>
+        <section class="section display-section">
+          <h2>화면에 머무는 방법</h2>
+          <div class="mode-group" role="group" aria-label="표시 방식">
+            <button class="mode-button" id="alwaysOnTopButton" type="button" aria-pressed="true"><span class="mode-scene scene-front" aria-hidden="true"><span class="mini-window"></span><img src="./assets/retriever/retriever-idle-1.png" alt="" draggable="false" /></span><span class="selection-check" aria-hidden="true"><svg class="icon"><use href="#i-check" /></svg></span><strong>항상 위에 표시</strong><small>작업 중에도 늘 곁에 있어요.</small></button>
+            <button class="mode-button" id="desktopOnlyButton" type="button" aria-pressed="false"><span class="mode-scene scene-back" aria-hidden="true"><span class="mini-window"></span><img src="./assets/retriever/retriever-idle-1.png" alt="" draggable="false" /></span><span class="selection-check" aria-hidden="true"><svg class="icon"><use href="#i-check" /></svg></span><strong>작업창 가리지 않기</strong><small>창 위에 앉을 때만 앞으로.</small></button>
+          </div>
+          <div class="size-row"><h3>리트리버 크기</h3><div class="size-group" role="group" aria-label="리트리버 크기"><button class="size-button" id="smallSizeButton" type="button" aria-pressed="false">작게</button><button class="size-button" id="mediumSizeButton" type="button" aria-pressed="true">중간</button><button class="size-button" id="largeSizeButton" type="button" aria-pressed="false">크게</button></div></div>
+        </section>
+        <section class="section habits-section">
+          <h2>우리의 일상</h2>
+          <label class="switch-row" for="wanderToggle"><span><strong>혼자 산책하기</strong><small>쉬는 동안 가끔 짧게 걸어요.</small></span><input class="switch-input" id="wanderToggle" type="checkbox" checked /><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></label>
+          <label class="switch-row" for="windowWalkToggle"><span><strong>창 위에서 쉬고 걷기</strong><small>열린 창 위에도 자리를 잡아요.</small></span><input class="switch-input" id="windowWalkToggle" type="checkbox" checked /><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></label>
+          <p class="feedback window-walk-note" id="windowWalkStatus" role="status"></p>
+          <label class="switch-row" for="welcomeToggle"><span><strong>돌아오면 반겨주기</strong><small>잠깐 자리를 비워도, 반갑게 맞아줘요.</small></span><input class="switch-input" id="welcomeToggle" type="checkbox" checked /><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></label>
+          <label class="switch-row" for="launchAtLoginToggle"><span><strong>Mac 켤 때 함께 시작하기</strong><small>로그인하면 리트리버도 하루를 시작해요.</small></span><input class="switch-input" id="launchAtLoginToggle" type="checkbox" checked /><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></label>
+        </section>
+      </div>
+      <footer class="footer"><svg class="icon" aria-hidden="true"><use href="#i-paw" /></svg><span>작은리트리버와 함께하세요</span></footer>
     </main>
     <script src="./settings.js"></script>
   </body>

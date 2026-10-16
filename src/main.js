@@ -2,6 +2,14 @@ const { app, BrowserWindow, Menu, Tray, clipboard, ipcMain, nativeImage, powerMo
 const path = require('node:path');
 const fs = require('node:fs');
 const { execFile } = require('node:child_process');
+const model = require('./companion-model');
+const { throwVelocity, movementBounds } = require('./physics');
+const { CompanionController } = require('./companion-controller');
+const { WindowSurfaces } = require('./window-surfaces');
+const { WindowPerch } = require('./window-perch');
+const { exposedSurfaces } = require('./surfaces');
+const { Presence } = require('./pet-behavior');
+const { attachPetMouse } = require('./pet-mouse');
 
 const DEFAULT_STATE = {
   petVisible: true,
@@ -10,6 +18,8 @@ const DEFAULT_STATE = {
   petSize: 'medium',
   wanderEnabled: true,
   launchAtLogin: true,
+  windowWalking: true,
+  welcomeBack: true,
 };
 
 const WANDER_DELAY_MIN_MS = 3000;
@@ -99,6 +109,7 @@ let isWandering = false;
 let isSleeping = false;
 let petDrag;
 let petWindowUsesPanel = false;
+let appliedPetWindowFloating = null;
 let stateFilePath;
 let lastFrontmostAppName = "";
 let activeWorkAppName = "";
@@ -119,6 +130,14 @@ let cursorNearbyReactionSent = false;
 let nextCursorNearbyPulseAt = 0;
 let cursorNearRetryUntil = 0;
 let lastCursorNearAttemptAt = 0;
+let companion;
+let rendererActivity = 'idle';
+let quitting = false;
+let windowSurfaces;
+let perch;
+const presence = new Presence();
+let pendingWelcome = null;
+let lastSurfaceStatus = 'off';
 
 function createSettingsWindow() {
   if (isUsableWindow(settingsWindow)) {
@@ -128,12 +147,13 @@ function createSettingsWindow() {
   }
 
   settingsWindow = new BrowserWindow({
-    width: 340,
-    height: 670,
-    minWidth: 320,
-    minHeight: 640,
+    width: 480,
+    height: 820,
+    minWidth: 360,
+    minHeight: 580,
     title: 'Comtriever',
-    resizable: false,
+    backgroundColor: '#f8f7f2',
+    resizable: true,
     maximizable: false,
     fullscreenable: false,
     webPreferences: {
@@ -156,9 +176,6 @@ function createTray() {
 
   tray = new Tray(trayIcon);
   tray.setToolTip('Comtriever');
-  tray.on('click', () => {
-    openSettingsWindow();
-  });
   updateTrayMenu();
 }
 
@@ -182,23 +199,8 @@ function updateTrayMenu() {
     },
     { type: 'separator' },
     {
-      label: '리트리버 보이기',
-      enabled: !state.petVisible,
-      click: showPetFromMenu,
-    },
-    {
-      label: '리트리버 숨기기',
-      enabled: state.petVisible,
-      click: hidePetFromMenu,
-    },
-    {
-      label: '집으로 보내기',
-      enabled: state.petVisible,
-      click: sendPetHome,
-    },
-    {
-      label: '다시 부르기',
-      click: callPetBack,
+      label: state.petVisible ? '집으로 보내기' : '다시 부르기',
+      click: state.petVisible ? sendPetHome : callPetBack,
     },
     { type: 'separator' },
     {
@@ -212,38 +214,11 @@ function openSettingsWindow() {
   createSettingsWindow();
 }
 
-function showPetFromMenu() {
-  if (!state.petVisible) {
-    callPetBack();
-    return;
-  }
-
-  applyDisplayMode();
-  broadcastState();
-}
-
-function hidePetFromMenu() {
-  if (!state.petVisible) return;
-
-  markPetAwake();
-  stopSendHomeAnimation();
-  stopWander({ notifyRenderer: true });
-  state.petVisible = false;
-  saveState();
-  hidePetWindow();
-  broadcastState();
-}
-
 function quitFromMenu() {
   app.quit();
 }
 
-function shouldUsePanelForDisplayMode(displayMode) {
-  return process.platform === 'darwin' && displayMode === 'alwaysOnTop';
-}
-
 function getPetWindowOptions(initialPosition, windowSize) {
-  const usePanel = shouldUsePanelForDisplayMode(state.displayMode);
   const options = {
     width: windowSize.width,
     height: windowSize.height,
@@ -264,11 +239,13 @@ function getPetWindowOptions(initialPosition, windowSize) {
     },
   };
 
-  if (usePanel) options.type = 'panel';
-  return { options, usePanel };
+  // Electron panels always join all Spaces. Desktop mode uses a normal,
+  // non-focusable window and temporarily changes only its level while perching.
+  if (process.platform === 'darwin' && state.displayMode === 'alwaysOnTop') options.type = 'panel';
+  return options;
 }
 
-function createPetWindow() {
+function createPetWindow({ restorePerch = false } = {}) {
   const display = screen.getPrimaryDisplay();
   const workArea = display.workArea;
   const windowSize = getPetWindowSize();
@@ -279,14 +256,18 @@ function createPetWindow() {
     workArea,
   );
 
-  const { options, usePanel } = getPetWindowOptions(initialPosition, windowSize);
+  const options = getPetWindowOptions(initialPosition, windowSize);
   petWindow = new BrowserWindow(options);
-  petWindowUsesPanel = usePanel;
+  petWindowUsesPanel = options.type === 'panel';
+  appliedPetWindowFloating = null;
   const createdPetWindow = petWindow;
 
-  createdPetWindow.setIgnoreMouseEvents(false);
+  attachPetMouse(createdPetWindow, screen, ipcMain);
   createdPetWindow.loadFile(path.join(__dirname, 'pet.html'));
   createdPetWindow.on('closed', () => {
+    companion?.stop({ silent: true });
+    perch?.detach();
+    windowSurfaces?.stop();
     stopCursorProximityWatcher();
     stopSendHomeAnimation();
     stopWander();
@@ -296,6 +277,7 @@ function createPetWindow() {
   createdPetWindow.once('ready-to-show', () => {
     if (petWindow !== createdPetWindow) return;
     applyDisplayMode();
+    if (restorePerch && !perch?.nearby()) companion.drop({ vx: 0, vy: 0 });
     scheduleWander();
     startWorkAppWatcher();
     startClipboardWatcher();
@@ -305,28 +287,28 @@ function createPetWindow() {
 }
 
 function recreatePetWindowForDisplayMode() {
-  if (!isUsableWindow(petWindow)) {
-    createPetWindow();
-    return;
-  }
-
+  const restorePerch = Boolean(perch?.current);
+  companion?.stop({ silent: true });
+  perch?.detach();
+  rendererActivity = 'idle';
+  if (!isUsableWindow(petWindow)) return createPetWindow();
   const previousWindow = petWindow;
-  const currentBounds = previousWindow.getBounds();
-  state.petPosition = { x: currentBounds.x, y: currentBounds.y };
+  const bounds = previousWindow.getBounds();
+  state.petPosition = { x: bounds.x, y: bounds.y };
   saveState();
-
   stopCursorProximityWatcher();
   stopSendHomeAnimation();
   stopWander({ notifyRenderer: true });
   petDrag = null;
   petWindow = null;
-
   previousWindow.removeAllListeners('closed');
-  if (!previousWindow.isDestroyed()) previousWindow.destroy();
-  createPetWindow();
+  previousWindow.destroy();
+  createPetWindow({ restorePerch });
 }
 
 function broadcastState() {
+  syncWindowTracking();
+  syncPetWindowLevel();
   const payload = normalizeStateForRenderer();
   sendToWindow(settingsWindow, 'state:changed', payload);
   sendToWindow(petWindow, 'state:changed', payload);
@@ -365,8 +347,6 @@ function loadState() {
   stateFilePath = path.join(app.getPath('userData'), 'state.json');
   try {
     const parsedState = JSON.parse(fs.readFileSync(stateFilePath, 'utf8'));
-    const needsWanderMigration = typeof parsedState.wanderEnabled !== 'boolean';
-    const needsLaunchAtLoginMigration = typeof parsedState.launchAtLogin !== 'boolean';
     state = {
       ...DEFAULT_STATE,
       ...parsedState,
@@ -383,20 +363,35 @@ function loadState() {
         ? parsedState.launchAtLogin
         : DEFAULT_STATE.launchAtLogin,
     };
-    if (needsWanderMigration || needsLaunchAtLoginMigration) saveState();
   } catch {
     state = { ...DEFAULT_STATE };
   }
+  state.progress = model.normalizeProgress(state.progress);
+  setPetVisible(state.petVisible !== false);
+  state.reminders = model.normalizeReminders(state.reminders);
+  // These interactions are built in now; discard legacy opt-out preferences.
+  for (const key of ['throwEnabled', 'smoothMotion', 'heldReactions']) delete state[key];
+  for (const key of ['windowWalking', 'welcomeBack']) state[key] = typeof state[key] === 'boolean' ? state[key] : true;
+  saveState();
 }
 
 function saveState() {
-  if (!stateFilePath) return;
+  if (!stateFilePath) return false;
   try {
     fs.mkdirSync(path.dirname(stateFilePath), { recursive: true });
-    fs.writeFileSync(stateFilePath, JSON.stringify(normalizeStateForRenderer(), null, 2));
+    const temporary = stateFilePath + '.tmp';
+    fs.writeFileSync(temporary, JSON.stringify(state, null, 2));
+    fs.renameSync(temporary, stateFilePath);
+    return true;
   } catch {
     // Settings persistence should never break the pet window itself.
+    return false;
   }
+}
+
+function setPetVisible(visible) {
+  model.setFullnessPaused(state.progress, !visible);
+  state.petVisible = visible;
 }
 
 function normalizeStateForRenderer() {
@@ -407,6 +402,12 @@ function normalizeStateForRenderer() {
     petSize: state.petSize,
     wanderEnabled: state.wanderEnabled,
     launchAtLogin: state.launchAtLogin,
+    windowWalking: state.windowWalking,
+    welcomeBack: state.welcomeBack,
+    windowTrackingStatus: windowSurfaces?.status ?? 'off',
+    bond: model.bond(state.progress),
+    reminders: state.reminders,
+    activity: companion?.activity ?? '',
   };
 }
 
@@ -425,31 +426,49 @@ function applyLaunchAtLoginSetting() {
 
 function showPetAfterLoginLaunch() {
   if (!process.argv.includes(LOGIN_LAUNCH_ARG) || state.launchAtLogin === false) return;
-  state.petVisible = true;
+  setPetVisible(true);
   saveState();
 }
 
-function applyDisplayMode() {
-  if (!petWindow) return;
-
-  if (state.displayMode === 'alwaysOnTop') {
-    petWindow.setAlwaysOnTop(true, 'floating');
-    petWindow.setVisibleOnAllWorkspaces(true, {
-      visibleOnFullScreen: true,
+function syncPetWindowLevel() {
+  if (!isUsableWindow(petWindow)) return;
+  // Never overwrite the user's saved mode for this temporary presentation.
+  // Lift during dragging too, so the pet can reach a ledge without disappearing
+  // behind its target window. Falling restores the level below normal app windows.
+  const alwaysOnTop = state.displayMode === 'alwaysOnTop';
+  const onWindow = state.windowWalking && state.petVisible && !presence.locked && !presence.suspended
+    && Boolean(perch?.current || petDrag);
+  const floating = alwaysOnTop || onWindow;
+  if (appliedPetWindowFloating !== floating) {
+    if (floating) petWindow.setAlwaysOnTop(true, 'floating');
+    else if (process.platform === 'darwin') {
+      // setAlwaysOnTop(false) keeps the pet in front of other normal windows.
+      // Electron requires flag=true to honor relativeLevel; -1 is below apps,
+      // above the desktop. Its isAlwaysOnTop() also returns true for this level,
+      // so cache the intended presentation instead of using that boolean.
+      petWindow.setAlwaysOnTop(true, 'normal', -1);
+    } else petWindow.setAlwaysOnTop(false);
+    appliedPetWindowFloating = floating;
+  }
+  // Temporary elevation belongs to the current desktop, like the support window.
+  if (petWindow.isVisibleOnAllWorkspaces() !== alwaysOnTop) {
+    petWindow.setVisibleOnAllWorkspaces(alwaysOnTop, {
+      visibleOnFullScreen: alwaysOnTop,
       skipTransformProcessType: true,
     });
-    if (state.petVisible) showPetInactive();
-    scheduleWander();
-    return;
   }
+}
 
-  petWindow.setAlwaysOnTop(false);
-  petWindow.setVisibleOnAllWorkspaces(false);
+function applyDisplayMode() {
+  if (!isUsableWindow(petWindow)) return;
+  syncWindowTracking();
+  syncPetWindowLevel();
   if (state.petVisible) showPetInactive();
   scheduleWander();
 }
 
 function startWorkAppWatcher() {
+  if (process.env.COMTRIEVER_TEST_MODE === '1') return;
   if (appReactionTimer || process.platform !== "darwin") return;
   appReactionTimer = setInterval(checkWorkAppReaction, WORK_APP_CHECK_INTERVAL_MS);
   checkWorkAppReaction();
@@ -462,6 +481,7 @@ function stopWorkAppWatcher() {
 }
 
 function startClipboardWatcher() {
+  if (process.env.COMTRIEVER_TEST_MODE === '1') return;
   if (clipboardTimer) return;
   lastClipboardText = normalizeClipboardText(clipboard.readText());
   clipboardTimer = setInterval(checkClipboardCopy, CLIPBOARD_CHECK_INTERVAL_MS);
@@ -474,6 +494,7 @@ function stopClipboardWatcher() {
 }
 
 function startSystemIdleWatcher() {
+  if (process.env.COMTRIEVER_TEST_MODE === '1') return;
   if (systemIdleTimer) return;
   systemIdleTimer = setInterval(checkSystemIdleState, SYSTEM_IDLE_CHECK_INTERVAL_MS);
   checkSystemIdleState();
@@ -486,6 +507,7 @@ function stopSystemIdleWatcher() {
 }
 
 function startCursorProximityWatcher() {
+  if (process.env.COMTRIEVER_TEST_MODE === '1') return;
   if (cursorProximityTimer) return;
   cursorProximityTimer = setInterval(checkCursorProximity, CURSOR_PROXIMITY_CHECK_INTERVAL_MS);
   checkCursorProximity();
@@ -567,6 +589,7 @@ function isCursorWithinPetProximity(padding) {
 }
 
 function canShowCursorProximityReaction() {
+  if (companion?.busy || rendererActivity !== 'idle') return false;
   if (!petWindow || !state.petVisible || sendHomeTimer || isWandering || isSleeping || petDrag) return false;
   if (state.displayMode === "desktopOnly" && !petWindow.isVisible()) return false;
   return true;
@@ -574,6 +597,8 @@ function canShowCursorProximityReaction() {
 
 function checkSystemIdleState() {
   const idleSeconds = powerMonitor.getSystemIdleTime();
+  updatePresence(idleSeconds);
+  if (presence.locked || presence.suspended) return;
 
   if (idleSeconds < SYSTEM_IDLE_YAWN_AFTER_SECONDS) {
     if (systemIdleStage !== "active") {
@@ -585,15 +610,13 @@ function checkSystemIdleState() {
 
   if (idleSeconds >= SYSTEM_IDLE_SLEEP_AFTER_SECONDS) {
     if (systemIdleStage !== "sleep") {
-      systemIdleStage = "sleep";
-      handleSystemIdleSleep();
+      if (handleSystemIdleSleep()) systemIdleStage = "sleep";
     }
     return;
   }
 
   if (systemIdleStage === "active") {
-    systemIdleStage = "yawn";
-    handleSystemIdleYawn();
+    if (handleSystemIdleYawn()) systemIdleStage = "yawn";
   }
 }
 
@@ -602,21 +625,25 @@ function handleSystemUserActive() {
   isSleeping = false;
   if (state.petVisible) sendToPet("pet:userActive");
   if (wasSleeping) scheduleWander();
+  flushWelcome();
 }
 
 function handleSystemIdleYawn() {
-  if (!canShowSystemIdleReaction()) return;
+  if (!canShowSystemIdleReaction()) return false;
   sendToPet("pet:systemIdleYawn");
+  return true;
 }
 
 function handleSystemIdleSleep() {
-  if (!canShowSystemIdleReaction()) return;
+  if (!canShowSystemIdleReaction()) return false;
   isSleeping = true;
   stopWander({ notifyRenderer: true });
   sendToPet("pet:systemIdleSleep");
+  return true;
 }
 
 function canShowSystemIdleReaction() {
+  if (companion?.busy || rendererActivity !== 'idle') return false;
   if (!petWindow || !state.petVisible || sendHomeTimer || petDrag) return false;
   if (state.displayMode === "desktopOnly" && !petWindow.isVisible()) return false;
   return true;
@@ -764,7 +791,7 @@ function getPathCopiedMessage(paths) {
 }
 
 function canShowClipboardReaction() {
-  if (!petWindow || !state.petVisible) return false;
+  if (!petWindow || !state.petVisible || companion?.busy || rendererActivity !== 'idle') return false;
   if (state.displayMode === "desktopOnly" && !petWindow.isVisible()) return false;
   return true;
 }
@@ -819,7 +846,7 @@ function sendRhythmReaction(payload) {
 }
 
 function canShowRhythmReaction() {
-  if (!petWindow || !state.petVisible || sendHomeTimer) return false;
+  if (!petWindow || !state.petVisible || sendHomeTimer || companion?.busy || rendererActivity !== 'idle') return false;
   if (state.displayMode === "desktopOnly" && !petWindow.isVisible()) return false;
   return true;
 }
@@ -932,7 +959,7 @@ function isIgnoredApp(appName) {
 }
 
 function canShowWorkAppReaction() {
-  if (!petWindow || !state.petVisible || sendHomeTimer || isWandering || isSleeping || petDrag) return false;
+  if (!petWindow || !state.petVisible || sendHomeTimer || isWandering || isSleeping || petDrag || companion?.busy || rendererActivity !== 'idle') return false;
   if (state.displayMode === "desktopOnly" && !petWindow.isVisible()) return false;
   return true;
 }
@@ -959,20 +986,28 @@ function getFrontmostAppName(callback) {
 
 function setDisplayMode(displayMode) {
   if (!['alwaysOnTop', 'desktopOnly'].includes(displayMode)) return;
+  if (state.displayMode === displayMode) return;
+  companion?.stop();
+  petDrag = null;
+  stopSendHomeAnimation();
   stopWander({ notifyRenderer: true });
+  sendToPet('pet:companionEnd', { cancelPointer: true });
   state.displayMode = displayMode;
   saveState();
-  if (process.platform === 'darwin' && petWindowUsesPanel !== shouldUsePanelForDisplayMode(displayMode)) {
+  if (process.platform === 'darwin' && petWindowUsesPanel !== (displayMode === 'alwaysOnTop')) {
     recreatePetWindowForDisplayMode();
-  } else {
-    applyDisplayMode();
-  }
+  } else applyDisplayMode();
   broadcastState();
 }
 
 function setPetSize(petSize) {
   if (!Object.hasOwn(PET_SIZE_OPTIONS, petSize)) return;
   if (state.petSize === petSize) return;
+  stopCompanionActivity();
+  const supported = Boolean(perch?.current);
+  perch?.detach();
+  petDrag = null;
+  sendToPet('pet:companionEnd', { cancelPointer: true });
 
   stopSendHomeAnimation();
   stopWander({ notifyRenderer: true });
@@ -993,6 +1028,7 @@ function setPetSize(petSize) {
 
   saveState();
   broadcastState();
+  if (supported) companion.drop({ vx: 0, vy: 0 });
   scheduleWander();
 }
 
@@ -1022,10 +1058,14 @@ function setLaunchAtLogin(launchAtLogin) {
 }
 
 function callPetBack() {
+  companion?.stop();
+  perch?.detach();
+  pendingWelcome = null;
+  petDrag = null;
   markPetAwake();
   stopSendHomeAnimation();
   stopWander({ notifyRenderer: true });
-  state.petVisible = true;
+  setPetVisible(true);
   const display = screen.getPrimaryDisplay();
   const workArea = display.workArea;
   const windowSize = getPetWindowSize();
@@ -1045,6 +1085,11 @@ function callPetBack() {
 
 function sendPetHome() {
   if (!petWindow || !state.petVisible) return;
+  companion?.stop();
+  perch?.detach();
+  pendingWelcome = null;
+  petDrag = null;
+  syncPetWindowLevel();
   markPetAwake();
   stopWander();
   stopSendHomeAnimation();
@@ -1057,22 +1102,20 @@ function sendPetHome() {
 
   const durationMs = 1500;
   const frameMs = 16;
-  const steps = Math.max(1, Math.round(durationMs / frameMs));
-  let step = 0;
+  const startedAt = performance.now();
   const startX = currentBounds.x;
   const startY = currentBounds.y;
 
   sendHomeTimer = setInterval(() => {
-    step += 1;
-    const progress = step / steps;
+    const progress = Math.min(1, (performance.now() - startedAt) / durationMs);
     const eased = 1 - Math.pow(1 - progress, 3);
     const x = Math.round(startX + (home.x - startX) * eased);
     const y = Math.round(startY + (home.y - startY) * eased);
     movePetWindow(x, y);
 
-    if (step >= steps) {
+    if (progress >= 1) {
       stopSendHomeAnimation();
-      state.petVisible = false;
+      setPetVisible(false);
       sendToPet('pet:arrivedHome');
       saveState();
       setTimeout(() => {
@@ -1105,6 +1148,7 @@ function stopSendHomeAnimation() {
 }
 
 function scheduleWander() {
+  if (quitting || companion?.busy || rendererActivity !== 'idle') return;
   if (state.wanderEnabled === false) return;
   if (wanderTimer || isWandering || petDrag) return;
   if (!petWindow || !state.petVisible || sendHomeTimer || isSleeping) return;
@@ -1123,8 +1167,11 @@ function startWander() {
   const currentBounds = petWindow.getBounds();
   const display = screen.getDisplayMatching(currentBounds);
   const workArea = display.workArea;
-  const minX = workArea.x + PET_EDGE_MARGIN_PX;
-  const maxX = workArea.x + workArea.width - currentBounds.width - PET_EDGE_MARGIN_PX;
+  const support = perch?.current;
+  const platformLimits = perch?.limits();
+  const minX = platformLimits?.left ?? workArea.x + PET_EDGE_MARGIN_PX;
+  const maxX = platformLimits?.right ?? workArea.x + workArea.width - currentBounds.width - PET_EDGE_MARGIN_PX;
+  if (maxX <= minX) return;
   const distance = getRandomWanderDistance(minX, maxX, currentBounds);
   const direction = chooseWanderDirection(currentBounds.x, distance, minX, maxX);
   const targetX = clamp(currentBounds.x + direction * distance, minX, maxX);
@@ -1136,14 +1183,14 @@ function startWander() {
 
   const durationMs = randomInt(WANDER_DURATION_MIN_MS, WANDER_DURATION_MAX_MS);
   const frameMs = 16;
-  const steps = Math.max(1, Math.round(durationMs / frameMs));
+  const startedAt = performance.now();
   const startX = currentBounds.x;
   const startY = currentBounds.y;
-  let step = 0;
+  const supportStartX = support?.windowX ?? 0;
 
   isWandering = true;
   lastWanderDirection = targetX < startX ? -1 : 1;
-  sendToPet('pet:wanderStarted', { direction: targetX < startX ? 'left' : 'right' });
+  sendToPet('pet:wanderStarted', { direction: targetX < startX ? 'left' : 'right', speed: Math.abs(targetX - startX) / (durationMs / 1000) });
 
   wanderMoveTimer = setInterval(() => {
     if (!canWanderNow({ allowCurrentWander: true })) {
@@ -1151,15 +1198,17 @@ function startWander() {
       return;
     }
 
-    step += 1;
-    const progress = step / steps;
+    const progress = Math.min(1, (performance.now() - startedAt) / durationMs);
     const eased = progress < 0.5
       ? 2 * progress * progress
       : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-    const x = Math.round(startX + (targetX - startX) * eased);
-    movePetWindow(x, startY);
+    if (support && perch?.current?.id !== support.id) return stopWander({ notifyRenderer: true });
+    const shiftX = support ? perch.current.windowX - supportStartX : 0;
+    const x = startX + shiftX + (targetX - startX) * eased;
+    const currentLimits = perch?.limits();
+    movePetWindow(currentLimits ? clamp(x, currentLimits.left, currentLimits.right) : x, currentLimits?.y ?? startY);
 
-    if (step >= steps) {
+    if (progress >= 1) {
       stopWander({ notifyRenderer: true, reschedule: true, save: true });
     }
   }, frameMs);
@@ -1189,6 +1238,7 @@ function stopWander(options = {}) {
 }
 
 function canWanderNow(options = {}) {
+  if (companion?.busy || (rendererActivity !== 'idle' && !(options.allowCurrentWander && rendererActivity === 'walk'))) return false;
   if (state.wanderEnabled === false) return false;
   if (!petWindow || !state.petVisible || sendHomeTimer || isSleeping || petDrag) return false;
   if (isWandering && !options.allowCurrentWander) return false;
@@ -1197,7 +1247,10 @@ function canWanderNow(options = {}) {
 }
 
 function handlePetIdleReady() {
+  rendererActivity = 'idle';
   markPetAwake();
+  if (!petDrag && !sendHomeTimer && state.petVisible) companion?.resumeAfterInteraction();
+  flushWelcome();
   scheduleWander();
 }
 
@@ -1207,10 +1260,13 @@ function handlePetSleepStarted() {
 }
 
 function stopPetMotionForInteraction() {
+  companion?.pauseForInteraction();
+  petDrag = null;
   markPetAwake();
   stopSendHomeAnimation();
   stopWander({ notifyRenderer: true });
-  state.petVisible = true;
+  setPetVisible(true);
+  syncPetWindowLevel();
 }
 
 function markPetAwake() {
@@ -1233,17 +1289,21 @@ function handlePetDragStart(pointerPayload) {
   if (!pointer || !petWindow || !state.petVisible) return;
 
   stopPetMotionForInteraction();
-  const wasWandering = isWandering;
   petDrag = {
     startPointer: pointer,
     startBounds: petWindow.getBounds(),
-    wasWandering,
+    samples: [{ x: pointer.screenX, y: pointer.screenY, t: performance.now() }],
   };
+  perch?.detach();
+  syncPetWindowLevel();
 }
 
 function handlePetDragMove(pointerPayload) {
   const pointer = getValidPointer(pointerPayload);
   if (!pointer || !petDrag || !petWindow) return;
+  const now = performance.now();
+  petDrag.samples.push({ x: pointer.screenX, y: pointer.screenY, t: now });
+  petDrag.samples = petDrag.samples.filter((p) => now - p.t < 180);
 
   const deltaX = pointer.screenX - petDrag.startPointer.screenX;
   const deltaY = pointer.screenY - petDrag.startPointer.screenY;
@@ -1257,12 +1317,22 @@ function handlePetDragMove(pointerPayload) {
 }
 
 function handlePetDragEnd(pointerPayload) {
-  const wasWandering = petDrag?.wasWandering;
-  handlePetDragMove(pointerPayload);
-  if (!petDrag) return;
-
+  // Cancellation events can have zero/missing screen coordinates. Keep the last
+  // valid drag position and release without adding any throwing impulse.
+  if (!pointerPayload?.cancelled) handlePetDragMove(pointerPayload);
+  if (!petDrag) {
+    companion?.resumeAfterInteraction();
+    return;
+  }
+  const velocity = pointerPayload?.cancelled ? { vx: 0, vy: 0 } : throwVelocity(petDrag.samples, performance.now());
   petDrag = null;
-  if (wasWandering) sendToPet('pet:wanderEnded');
+  // A careful placement can end a few pixels below the ledge. Catch it before
+  // starting one-way falling physics, but preserve deliberate throws.
+  const placedOnWindow = Math.hypot(velocity.vx, velocity.vy) < 280 && perch?.nearby();
+  if (placedOnWindow) {
+    companion.stop({ silent: true });
+    sendToPet('pet:companionEnd', {});
+  } else companion.drop(velocity);
   saveState();
   scheduleWander();
   broadcastState();
@@ -1335,19 +1405,143 @@ function randomChoice(items) {
 }
 
 function movePetWindow(x, y) {
-  if (!petWindow) return;
-  petWindow.setPosition(x, y, false);
-  state.petPosition = { x, y };
+  if (!isUsableWindow(petWindow) || !Number.isFinite(x) || !Number.isFinite(y)) return;
+  const rounded = { x: Math.round(x), y: Math.round(y) };
+  const current = petWindow.getBounds();
+  if (current.x !== rounded.x || current.y !== rounded.y) petWindow.setPosition(rounded.x, rounded.y, false);
+  state.petPosition = rounded;
 }
 
+function stopCompanionActivity() {
+  const wasFalling = Boolean(companion?.flight || companion?.suspendedFlight);
+  companion?.stop();
+  // Esc/Stop may end play, but must not freeze an unsupported pet in midair.
+  if (wasFalling && !petDrag && !sendHomeTimer && state.petVisible) companion.drop({ vx: 0, vy: 0 });
+  saveState();
+  scheduleWander();
+}
+
+function reconcileDisplay() {
+  companion?.stop();
+  const supported = Boolean(perch?.current);
+  perch?.detach();
+  petDrag = null;
+  stopSendHomeAnimation();
+  stopWander({ notifyRenderer: true });
+  if (!isUsableWindow(petWindow)) return;
+  const bounds = petWindow.getBounds();
+  const area = screen.getDisplayMatching(bounds).workArea;
+  const position = clampWindowPosition(bounds.x, bounds.y, bounds, area);
+  movePetWindow(position.x, position.y);
+  sendToPet('pet:companionEnd', { cancelPointer: true });
+  saveState();
+  if (supported && state.petVisible) companion.drop({ vx: 0, vy: 0 });
+}
+
+function canUseWindowSurfaces() {
+  return process.platform === 'darwin' && state.windowWalking && state.petVisible
+    && !presence.locked && !presence.suspended && !quitting;
+}
+
+function currentSurfaces() {
+  if (!canUseWindowSurfaces() || windowSurfaces?.status !== 'ready') return [];
+  return exposedSurfaces(windowSurfaces.windows, screen.getAllDisplays().map((d) => d.workArea));
+}
+
+function syncWindowTracking() {
+  if (!windowSurfaces) return;
+  if (canUseWindowSurfaces() && (process.env.COMTRIEVER_TEST_MODE !== '1' || process.env.COMTRIEVER_TEST_SURFACES === '1')) {
+    if (windowSurfaces.status === 'off') windowSurfaces.start();
+  } else if (windowSurfaces.status !== 'off') windowSurfaces.stop();
+}
+
+function updatePresence(idleSeconds, now = Date.now()) {
+  const wasAway = presence.awaySince !== null;
+  const returned = presence.sample(idleSeconds, now);
+  if (!wasAway && presence.awaySince !== null && state.welcomeBack && state.petVisible) sendToPet('pet:away');
+  if (returned) {
+    // A queued welcome expires rather than interrupting a long interaction later.
+    pendingWelcome = state.welcomeBack && state.petVisible ? { ...returned, expiresAt: now + 30000 } : null;
+    handleSystemUserActive();
+  }
+  flushWelcome(now);
+}
+
+function flushWelcome(now = Date.now()) {
+  if (!pendingWelcome) return;
+  if (now > pendingWelcome.expiresAt || !state.welcomeBack || !state.petVisible) { pendingWelcome = null; return; }
+  if (presence.locked || presence.suspended || companion?.busy || petDrag || sendHomeTimer || rendererActivity !== 'idle') return;
+  const payload = pendingWelcome;
+  pendingWelcome = null;
+  stopWander({ notifyRenderer: true });
+  rendererActivity = 'busy';
+  sendToPet('pet:welcome', { seconds: payload.seconds, level: model.bond(state.progress).level });
+}
+
+function pausePresence(kind) {
+  presence.pause(kind, Date.now(), powerMonitor.getSystemIdleTime());
+  companion?.stop();
+  stopWander({ notifyRenderer: true });
+  petDrag = null;
+  sendToPet('pet:companionEnd', { cancelPointer: true });
+  syncWindowTracking();
+}
+
+function resumePresence(kind) {
+  presence.resume(kind);
+  syncWindowTracking();
+  checkSystemIdleState();
+  companion.checkReminders();
+}
+
+const hasInstanceLock = app.requestSingleInstanceLock();
+if (!hasInstanceLock) app.quit();
+app.on('second-instance', openSettingsWindow);
+
 app.whenReady().then(() => {
+  if (!hasInstanceLock) return;
   app.setName('Comtriever');
   loadState();
+  windowSurfaces = new WindowSurfaces(app.isPackaged
+    ? path.join(process.resourcesPath, 'native', 'window-surfaces')
+    : path.join(__dirname, '../build/native/window-surfaces'));
+  windowSurfaces.on('change', () => {
+    if (lastSurfaceStatus !== windowSurfaces.status) {
+      lastSurfaceStatus = windowSurfaces.status;
+      broadcastState();
+    }
+  });
+  companion = new CompanionController({
+    pet: () => petWindow, state: () => state,
+    petSize: () => PET_SIZE_OPTIONS[state.petSize].petSize,
+    blocked: () => Boolean(petDrag || ['file', 'held'].includes(rendererActivity) || presence.locked || presence.suspended),
+    interrupt: stopPetMotionForInteraction, resume: scheduleWander,
+    move: movePetWindow, send: sendToPet, save: saveState, broadcast: broadcastState,
+    openSettings: openSettingsWindow,
+    surfaces: currentSurfaces, detachSupport: () => perch?.detach(), attachSupport: (surface) => perch.attach(surface),
+  });
+  perch = new WindowPerch({
+    tracker: windowSurfaces, enabled: canUseWindowSurfaces, surfaces: currentSurfaces,
+    bounds: () => isUsableWindow(petWindow) ? petWindow.getBounds() : null,
+    petSize: () => PET_SIZE_OPTIONS[state.petSize].petSize,
+    screenBounds: (b) => movementBounds(screen.getDisplayMatching(b).workArea, b.width, b.height),
+    blocked: () => Boolean(petDrag || companion.busy || sendHomeTimer || ['file', 'held'].includes(rendererActivity) || presence.locked || presence.suspended || windowSurfaces.status === 'starting'),
+    move: movePetWindow, send: sendToPet, save: saveState,
+    supportChanged: syncPetWindowLevel,
+    interruptWander: () => stopWander({ notifyRenderer: true }), fall: () => companion.drop({ vx: 0, vy: 0 }),
+  });
   showPetAfterLoginLaunch();
   applyLaunchAtLoginSetting();
   createTray();
   createSettingsWindow();
   createPetWindow();
+  companion.start();
+  screen.on('display-removed', reconcileDisplay);
+  screen.on('display-metrics-changed', reconcileDisplay);
+  powerMonitor.on('suspend', () => pausePresence('suspended'));
+  powerMonitor.on('resume', () => resumePresence('suspended'));
+  powerMonitor.on('lock-screen', () => pausePresence('locked'));
+  powerMonitor.on('unlock-screen', () => resumePresence('locked'));
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -1355,6 +1549,14 @@ app.whenReady().then(() => {
       createPetWindow();
     }
   });
+});
+
+app.on('before-quit', () => {
+  quitting = true;
+  perch?.dispose();
+  windowSurfaces?.stop();
+  companion?.dispose();
+  saveState();
 });
 
 app.on('window-all-closed', () => {
@@ -1377,6 +1579,7 @@ ipcMain.handle('fileDrop:open', (_event, itemPath) => openDroppedItem(itemPath))
 ipcMain.handle('fileDrop:copyPaths', (_event, paths) => copyDroppedItemPaths(paths));
 ipcMain.handle('fileDrop:trash', (_event, paths) => trashDroppedItems(paths));
 ipcMain.on('pet:sendHome', sendPetHome);
+ipcMain.on('settings:open', openSettingsWindow);
 ipcMain.on('pet:callBack', callPetBack);
 ipcMain.on('pet:setDisplayMode', (_event, displayMode) => setDisplayMode(displayMode));
 ipcMain.on('pet:setSize', (_event, petSize) => setPetSize(petSize));
@@ -1394,3 +1597,44 @@ ipcMain.on('pet:updatePosition', (_event, position) => {
   state.petPosition = position;
   saveState();
 });
+
+ipcMain.on('pet:activity', (event, activity) => {
+  if (event.sender !== petWindow?.webContents || !['idle', 'walk', 'busy', 'file', 'held'].includes(activity)) return;
+  rendererActivity = activity;
+  if (['busy', 'file', 'held'].includes(activity)) stopWander();
+  if (activity === 'idle') scheduleWander();
+});
+ipcMain.handle('companion:play', (_event, kind) => companion.startPlay(kind));
+ipcMain.on('companion:stop', stopCompanionActivity);
+ipcMain.on('companion:pet', (event, region) => {
+  if (event.sender !== petWindow?.webContents || !['head', 'body', 'belly'].includes(region) || companion.busy) return;
+  const xp = model.reward(state.progress, 'pet');
+  if (xp) { saveState(); broadcastState(); sendToPet('pet:bondReward', { xp }); }
+});
+ipcMain.on('companion:option', (_event, payload) => {
+  const { key, value } = payload ?? {};
+  if (!['windowWalking', 'welcomeBack'].includes(key) || typeof value !== 'boolean') return;
+  state[key] = value;
+  if (key === 'windowWalking' && !value && perch?.current) perch.loseSupport();
+  if (key === 'welcomeBack' && !value) pendingWelcome = null;
+  saveState();
+  broadcastState();
+});
+ipcMain.on('toy:pointer', (event, payload) => {
+  const { phase, pointer } = payload ?? {};
+  if (['start', 'move', 'end', 'cancel'].includes(phase)) companion.toyPointer(phase, pointer, event.sender);
+});
+ipcMain.handle('reminders:add', (_event, input) => {
+  if (state.reminders.length >= 100) return { ok: false, message: '일정은 100개까지 저장할 수 있어요. 완료한 일정을 지워주세요.' };
+  try {
+    const reminder = model.createReminder(input);
+    state.reminders.push(reminder);
+    if (!saveState()) {
+      state.reminders.pop();
+      return { ok: false, message: '일정을 저장하지 못했어요. 저장 공간을 확인해주세요.' };
+    }
+    broadcastState();
+    return { ok: true, reminder };
+  } catch (error) { return { ok: false, message: error.message }; }
+});
+ipcMain.handle('reminders:action', (_event, payload) => companion.reminderAction(payload?.id, payload?.action));

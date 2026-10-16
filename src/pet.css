@@ -2,8 +2,6 @@
   --house: #286f6e;
   --ink: #1f2a30;
   --pet-size: 188px;
-  --bubble-left: 124px;
-  --bubble-top: 24px;
   --file-menu-width: calc(100vw - 16px);
 }
 
@@ -52,7 +50,7 @@ body {
   width: var(--pet-size);
   height: var(--pet-size);
   transform-origin: center bottom;
-  transition: transform 120ms ease;
+  /* Mirroring is discrete; interpolating scaleX through zero squashes the dog. */
 }
 
 .sprite-wrap.direction-left {
@@ -68,6 +66,61 @@ body {
   background-size: 100% 100%;
   image-rendering: pixelated;
 }
+
+.sprite-motion { display: block; width: 100%; height: 100%; transform-origin: 50% 91%; will-change: transform; }
+.held-emotion { position: absolute; left: 38%; top: 27%; pointer-events: none; z-index: 6; color: #c95e6b; font-size: 21px; font-weight: 900; text-shadow: 0 1px 3px white; }
+.held-emotion[data-mood=startled] { color: #b57029; }
+.held-emotion[hidden] { display: none; }
+.pet { touch-action: none; }
+.pet.held { cursor: grabbing; }
+.pet-effects { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
+.fullness-gauge {
+  position: absolute;
+  /* Sit beside the hindquarters, below the independent speech area. */
+  left: 27px;
+  top: calc(60px + var(--pet-size) * .3);
+  width: 42px;
+  display: grid;
+  grid-template-rows: 11px 34px 12px;
+  justify-items: center;
+  gap: 3px;
+  padding: 5px;
+  border: 1px solid #cddcc6;
+  border-radius: 16px;
+  background: #fffdf5f5;
+  box-shadow: 0 3px 8px #243c261c, inset 0 1px 0 #fff;
+  color: #3e6650;
+  opacity: 0;
+  transform: translate(-50%, 5px) scale(.94);
+  transform-origin: center bottom;
+  transition: opacity 200ms ease, transform 200ms ease;
+  pointer-events: none;
+  z-index: 3;
+}
+.stage[data-facing=left] .fullness-gauge { left: calc(33px + var(--pet-size)); }
+.fullness-gauge[hidden] { display: none; }
+.fullness-gauge.visible { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.fullness-label { font-size: 9px; font-weight: 700; line-height: 11px; }
+.fullness-track { position: relative; width: 14px; height: 34px; overflow: hidden; border-radius: 7px; background: #e6eadc; }
+.fullness-fill { position: absolute; inset: 0; border-radius: inherit; background: #83bb86; transform: scaleY(0); transform-origin: center bottom; will-change: transform; }
+.fullness-gauge[data-direction=loss] .fullness-fill { background: #e7bf52; }
+.fullness-value { font-size: 11px; font-weight: 800; line-height: 12px; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) {
+  .fullness-gauge { transition: opacity 100ms ease; transform: translateX(-50%); }
+  .fullness-gauge.visible { transform: translateX(-50%); }
+}
+.heart-effect { position: absolute; bottom: 130px; color: #c95e6b; font: 800 18px -apple-system, sans-serif; text-shadow: 0 1px 2px #fff; animation: floatHeart 1200ms ease-out forwards; }
+@keyframes floatHeart { from { opacity: 1; transform: translateY(0) scale(.8); } 35% { opacity: 1; transform: translateY(-18px) scale(1.1); } to { opacity: 0; transform: translateY(-52px) scale(1); } }
+.pet-tools { position: absolute; left: 18px; right: 18px; bottom: 0; display: flex; gap: 4px; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 150ms; z-index: 4; }
+.pet-tools.visible, .pet-tools:focus-within, .pet-tools.pinned { opacity: 1; pointer-events: auto; }
+.pet-tools button, .reminder-card button { border: 1px solid #d7cdbc; background: #fffdf4; color: #3d5547; border-radius: 9px; padding: 5px 8px; cursor: pointer; font: 700 11px -apple-system, sans-serif; box-shadow: 0 2px 5px #0001; }
+.pet-tools button:hover:not(:disabled), .reminder-card button:hover { background: #e6f3e9; }
+.pet-tools button:disabled { opacity: .45; cursor: default; }
+.reminder-card { position: absolute; z-index: 5; top: 8px; left: 12px; right: 12px; padding: 10px; border: 1px solid #d7cdbc; border-radius: 13px; background: #fffdf5; box-shadow: 0 4px 12px #0002; color: #2b4438; font: 12px -apple-system, sans-serif; }
+.reminder-card small { display: block; font-size: 10px; color: #75715f; }
+.reminder-card strong { display: block; margin: 5px 0 8px; overflow-wrap: anywhere; max-height: 48px; overflow: auto; }
+.reminder-card div { display: flex; gap: 6px; }
+.reminder-card[hidden] { display: none; }
 
 .pet.happy {
   animation: happyHop 520ms cubic-bezier(.2, .7, .2, 1);
@@ -122,10 +175,13 @@ body {
 
 .bubble {
   position: absolute;
-  left: var(--bubble-left);
-  top: var(--bubble-top);
-  max-width: min(150px, calc(100vw - var(--bubble-left) - 10px));
+  left: 30px;
+  right: 36px;
+  top: 24px;
+  width: max-content;
+  max-width: min(202px, var(--pet-size));
   min-width: 46px;
+  margin-inline: auto;
   padding: 8px 11px 9px;
   border: 1px solid rgba(91, 74, 49, 0.16);
   border-radius: 14px 14px 14px 5px;
@@ -142,6 +198,7 @@ body {
   transform-origin: 13px 100%;
   transition: opacity 160ms ease, transform 160ms ease;
   pointer-events: none;
+  word-break: keep-all;
   overflow-wrap: break-word;
   text-wrap: balance;
 }
@@ -167,6 +224,7 @@ body {
 
 .bubble.action-result {
   left: 32px;
+  right: auto;
   top: 12px;
   max-width: min(202px, calc(100vw - 64px));
   min-width: 92px;

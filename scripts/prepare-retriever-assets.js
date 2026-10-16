@@ -300,6 +300,10 @@ function buildManifest() {
       frameCount: sheet.frameCount,
       fps: sheet.fps,
       loop: sheet.loop,
+      groundY: Math.max(...Array.from({ length: sheet.frameCount }, (_, index) => {
+        const image = readPng(path.join(OUT_DIR, sheet.outputBase + '-' + (index + 1) + '.png'));
+        return ((getAlphaBounds(image)?.maxY ?? sheet.frameHeight - 1) + 1) / sheet.frameHeight;
+      })),
     };
   }
 

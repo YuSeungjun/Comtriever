@@ -16,7 +16,8 @@
       "frameHeight": 600,
       "frameCount": 4,
       "fps": 6,
-      "loop": true
+      "loop": true,
+      "groundY": 0.91
     },
     "walk": {
       "frames": [
@@ -29,7 +30,8 @@
       "frameHeight": 600,
       "frameCount": 4,
       "fps": 10,
-      "loop": true
+      "loop": true,
+      "groundY": 0.8283333333333334
     },
     "goHome": {
       "frames": [
@@ -42,7 +44,8 @@
       "frameHeight": 600,
       "frameCount": 4,
       "fps": 10,
-      "loop": true
+      "loop": true,
+      "groundY": 0.865
     },
     "popIn": {
       "frames": [
@@ -55,7 +58,8 @@
       "frameHeight": 600,
       "frameCount": 4,
       "fps": 13,
-      "loop": false
+      "loop": false,
+      "groundY": 0.8566666666666667
     },
     "happy": {
       "frames": [
@@ -68,7 +72,8 @@
       "frameHeight": 600,
       "frameCount": 4,
       "fps": 8,
-      "loop": false
+      "loop": false,
+      "groundY": 0.8783333333333333
     },
     "sleep": {
       "frames": [
@@ -81,7 +86,8 @@
       "frameHeight": 600,
       "frameCount": 4,
       "fps": 4,
-      "loop": true
+      "loop": true,
+      "groundY": 0.7883333333333333
     },
     "tailWag": {
       "frames": [
@@ -94,7 +100,8 @@
       "frameHeight": 600,
       "frameCount": 4,
       "fps": 10,
-      "loop": false
+      "loop": false,
+      "groundY": 0.8633333333333333
     },
     "yawn": {
       "frames": [
@@ -107,7 +114,8 @@
       "frameHeight": 600,
       "frameCount": 4,
       "fps": 8,
-      "loop": false
+      "loop": false,
+      "groundY": 0.8533333333333334
     },
     "pressedHold": {
       "frames": [
@@ -150,7 +158,8 @@
       "frameHeight": 600,
       "frameCount": 4,
       "fps": 9,
-      "loop": false
+      "loop": false,
+      "groundY": 0.7883333333333333
     },
     "headTilt": {
       "frames": [
@@ -163,7 +172,8 @@
       "frameHeight": 600,
       "frameCount": 4,
       "fps": 8,
-      "loop": false
+      "loop": false,
+      "groundY": 0.89
     },
     "cheerSit": {
       "frames": [
@@ -176,7 +186,8 @@
       "frameHeight": 600,
       "frameCount": 4,
       "fps": 7,
-      "loop": false
+      "loop": false,
+      "groundY": 0.9
     },
     "nod": {
       "frames": [
@@ -189,7 +200,8 @@
       "frameHeight": 600,
       "frameCount": 4,
       "fps": 8,
-      "loop": false
+      "loop": false,
+      "groundY": 0.85
     },
     "celebrate": {
       "frames": [
@@ -202,7 +214,8 @@
       "frameHeight": 600,
       "frameCount": 4,
       "fps": 9,
-      "loop": false
+      "loop": false,
+      "groundY": 0.87
     },
     "sniffSearch": {
       "frames": [
@@ -215,7 +228,8 @@
       "frameHeight": 600,
       "frameCount": 4,
       "fps": 8,
-      "loop": false
+      "loop": false,
+      "groundY": 0.8466666666666667
     },
     "trashPickup": {
       "frames": [
@@ -228,7 +242,8 @@
       "frameHeight": 600,
       "frameCount": 4,
       "fps": 8,
-      "loop": false
+      "loop": false,
+      "groundY": 0.8516666666666667
     }
   }
 }

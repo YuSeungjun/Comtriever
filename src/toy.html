@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Comtriever Toy</title>
+  <style>
+    html,body { margin:0; width:100%; height:100%; overflow:hidden; background:transparent; }
+    #toy { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:64px; height:64px; padding:0; border:0; appearance:none; background:transparent; cursor:grab; touch-action:none; }
+    #toy:active { cursor:grabbing; }
+    #shape { display:block; position:relative; margin:auto; width:32px; height:32px; border-radius:50%; background:#f3b944; border:2px solid #a76a1d; box-shadow:inset -5px -5px 0 #d78d28, 0 3px 3px #0002; }
+    #shape::after { content:''; position:absolute; inset:5px 12px; border-left:3px solid #fff5d7; border-right:3px solid #fff5d7; border-radius:50%; transform:rotate(30deg); }
+    .snack #shape { width:31px; height:15px; border-radius:8px; background:#dbad70; border:2px solid #926037; box-shadow:inset 0 -3px 0 #bd874a,0 3px 3px #0002; }
+    .snack #shape::before,.snack #shape::after { content:''; position:absolute; width:13px; height:21px; top:-5px; border:2px solid #926037; border-radius:7px; background:#e8be86; transform:none; }
+    .snack #shape::before { left:-6px; } .snack #shape::after { left:auto; right:-6px; }
+  </style>
+</head>
+<body>
+  <button id="toy" aria-label="공을 잡아서 던져주세요"><span id="shape"></span></button>
+  <script src="./toy.js"></script>
+</body>
+</html>

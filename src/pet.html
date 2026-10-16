@@ -11,10 +11,29 @@
       <div class="home" id="home">⌂</div>
       <button class="pet" id="pet" type="button" aria-label="Comtriever">
         <span class="sprite-wrap" id="spriteWrap">
-          <span class="sprite" id="sprite"></span>
+          <span class="sprite-motion" id="spriteMotion"><span class="sprite" id="sprite"></span></span>
         </span>
       </button>
       <div class="bubble" id="bubble">멍!</div>
+      <div class="fullness-gauge" id="fullnessGauge" hidden>
+        <span class="fullness-label">배고픔</span>
+        <div class="fullness-track" id="fullnessMeter" role="meter" aria-label="배고픔" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <span class="fullness-fill" id="fullnessFill"></span>
+        </div>
+        <strong class="fullness-value" id="fullnessValue" aria-hidden="true">0%</strong>
+      </div>
+      <div class="pet-effects" id="petEffects" aria-hidden="true"></div>
+      <div class="held-emotion" id="heldEmotion" aria-hidden="true" hidden></div>
+      <div class="pet-tools" id="petTools" aria-label="리트리버와 놀기">
+        <button id="snackButton" type="button" title="간식 던져주기">간식</button>
+        <button id="ballButton" type="button" title="공 던져주기">공놀이</button>
+        <button id="stopPlayButton" type="button" title="놀이 그만하기">그만</button>
+      </div>
+      <div class="reminder-card" id="reminderCard" hidden role="status">
+        <small>약속한 시간이에요</small>
+        <strong id="reminderTitle"></strong>
+        <div><button id="reminderDone" type="button">완료</button><button id="reminderSnooze" type="button">10분 뒤</button></div>
+      </div>
       <div class="file-menu" id="fileMenu" aria-hidden="true">
         <div class="file-menu-prompt">이 파일을 어떻게 할까멍!</div>
         <div class="file-menu-actions" id="fileMenuActions">
@@ -24,6 +43,9 @@
         </div>
       </div>
     </div>
+    <script src="./pet-animation.js"></script>
+    <script src="./pet-behavior.js"></script>
+    <script src="./pet-hit-test.js"></script>
     <script src="./pet.js"></script>
   </body>
 </html>
