@@ -64,6 +64,48 @@ test('floating windows block a ledge but cannot become platforms', () => {
   assert.equal(result.length, 0);
 });
 
+test('Notification Center overlays preserve ledges without ignoring ordinary floating windows', () => {
+  const appWindow = win(2, 100, 400, 800, 300);
+  // Captured on macOS: a top-right notification owns a screen-sized surface.
+  const overlay = { ...win(47, 0, 0, 1440, 900, 21), isNotificationCenter: true };
+  const expected = exposedSurfaces([appWindow], [area]);
+  assert.deepEqual(exposedSurfaces([overlay, appWindow], [area]), expected);
+  // Smaller notification surfaces must not cut the supporting ledge either.
+  const banner = { ...overlay, x: 300, y: 350, width: 400, height: 100 };
+  assert.deepEqual(exposedSurfaces([banner, appWindow], [area]), expected);
+  assert.deepEqual(exposedSurfaces([{ ...overlay, isNotificationCenter: false }, appWindow], [area]), []);
+  assert.deepEqual(exposedSurfaces([{ ...banner, layer: 0 }], [area]), [], 'notifications are never platforms');
+});
+
+test('a perched pet stays supported through notifications but falls when its window closes', (t) => {
+  const monitor = { x: -1440, y: -176, width: 1440, height: 876 };
+  const appWindow = win(2, -1300, 300, 900, 300);
+  const overlay = { ...win(47, -1440, -200, 1440, 900, 21), isNotificationCenter: true };
+  let windows = [appWindow];
+  let bounds = { x: -1100, y: 68.92, width: 254, height: 262 };
+  let falls = 0;
+  const perch = new WindowPerch({
+    tracker: {}, enabled: () => true, blocked: () => false, bounds: () => bounds, petSize: () => 188,
+    surfaces: () => exposedSurfaces(windows, [monitor]),
+    screenBounds: () => ({ left: -1440, right: -254, top: -176, bottom: 438 }),
+    move: (x, y) => { bounds = { ...bounds, x, y }; }, send() {}, save() {}, interruptWander() {}, fall() { falls++; },
+  });
+  t.after(() => perch.dispose());
+  perch.attach(perch.host.surfaces()[0]);
+  for (let i = 0; i < 3; i++) {
+    windows = [overlay, appWindow];
+    perch.tick();
+    assert.equal(perch.current?.id, appWindow.id, 'notification appearance retains support');
+    windows = [appWindow];
+    perch.tick();
+    assert.equal(falls, 0, 'notification dismissal does not trigger a fall');
+  }
+  windows = [overlay];
+  perch.tick();
+  assert.equal(falls, 1, 'a notification does not keep a closed window alive');
+  assert.equal(perch.current, null);
+});
+
 test('the screen-sized transparent Dock overlay does not hide real application ledges', () => {
   const overlay = { ...win(7, 0, 0, 1440, 900, 20), isDock: true };
   const appWindow = win(2, 100, 400, 800, 300);
