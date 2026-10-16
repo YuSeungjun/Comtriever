@@ -9,10 +9,9 @@ function exposedSurfaces(windows, workAreas) {
     // Notification Center can represent a small banner as a screen-sized
     // transparent window. Its transient overlays are neither ledges nor blockers.
     if (w.isNotificationCenter === true) continue;
-    // The Dock's transparent desktop overlay reports alpha=1 and can sit
-    // before every application in CGWindowList. Ignore only its screen-sized
-    // overlay; actual Dock bars, menus and other apps still occlude ledges.
-    if (w.isDock === true && workAreas.some((area) => w.x <= area.x && w.y <= area.y
+    // Dock and ScreenCaptureUI can report screen-sized transparent overlays
+    // with alpha=1. Keep their actual controls, menus and other apps as blockers.
+    if ((w.isDock === true || w.isScreenCapture === true) && workAreas.some((area) => w.x <= area.x && w.y <= area.y
       && w.x + w.width >= area.x + area.width && w.y + w.height >= area.y + area.height)) continue;
     if (w.layer === 0 && w.width >= 120 && w.height >= 80) {
       for (const area of workAreas) {

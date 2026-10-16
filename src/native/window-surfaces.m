@@ -19,8 +19,8 @@ int main(int argc, const char *argv[]) {
         CGRect rect;
         if (!CGRectMakeWithDictionaryRepresentation((__bridge CFDictionaryRef)info[(id)kCGWindowBounds], &rect)) continue;
         if (rect.size.width < 20 || rect.size.height < 20) continue;
-        // macOS can expose a screen-sized, transparent Dock window at Dock
-        // level with alpha=1. Its rectangle does not occlude application windows.
+        // Known system overlays can report opaque, screen-sized rectangles.
+        // Expose ownership flags so geometry alone cannot hide real app ledges.
         NSInteger layer = [info[(id)kCGWindowLayer] integerValue];
         NSNumber *ownerPID = info[(id)kCGWindowOwnerPID];
         NSString *ownerBundle = ownerBundles[ownerPID];
@@ -31,10 +31,11 @@ int main(int argc, const char *argv[]) {
         }
         BOOL isDock = layer == CGWindowLevelForKey(kCGDockWindowLevelKey) && [ownerBundle isEqualToString:@"com.apple.dock"];
         BOOL isNotificationCenter = [ownerBundle isEqualToString:@"com.apple.notificationcenterui"];
+        BOOL isScreenCapture = [ownerBundle isEqualToString:@"com.apple.screencaptureui"];
         [windows addObject:@{@"id": info[(id)kCGWindowNumber], @"pid": info[(id)kCGWindowOwnerPID],
           @"layer": info[(id)kCGWindowLayer], @"x": @(rect.origin.x), @"y": @(rect.origin.y),
           @"width": @(rect.size.width), @"height": @(rect.size.height), @"isDock": @(isDock),
-          @"isNotificationCenter": @(isNotificationCenter)}];
+          @"isNotificationCenter": @(isNotificationCenter), @"isScreenCapture": @(isScreenCapture)}];
       }
       CFRelease(list);
       NSData *data = [NSJSONSerialization dataWithJSONObject:windows options:0 error:nil];

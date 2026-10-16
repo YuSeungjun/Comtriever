@@ -77,11 +77,22 @@ test('Notification Center overlays preserve ledges without ignoring ordinary flo
   assert.deepEqual(exposedSurfaces([{ ...banner, layer: 0 }], [area]), [], 'notifications are never platforms');
 });
 
-test('a perched pet stays supported through notifications but falls when its window closes', (t) => {
+test('screen capture overlays preserve ledges while capture controls and other apps still occlude them', () => {
+  const appWindow = win(2, 100, 400, 800, 300);
+  // ScreenCaptureUI keeps a screen-sized, alpha=1 surface during recording.
+  const overlay = { ...win(3, 0, 0, 1440, 900, 24), isScreenCapture: true };
+  assert.deepEqual(exposedSurfaces([overlay, appWindow], [area]), exposedSurfaces([appWindow], [area]));
+  assert.deepEqual(exposedSurfaces([{ ...overlay, isScreenCapture: false }, appWindow], [area]), []);
+  const controls = { ...overlay, x: 300, y: 350, width: 400, height: 100 };
+  assert.deepEqual(exposedSurfaces([controls, appWindow], [area]).map(s => [s.left, s.right]), [[112, 300], [700, 888]]);
+});
+
+test('a pet can perch during system overlays and stays supported until its window closes', (t) => {
   const monitor = { x: -1440, y: -176, width: 1440, height: 876 };
   const appWindow = win(2, -1300, 300, 900, 300);
   const overlay = { ...win(47, -1440, -200, 1440, 900, 21), isNotificationCenter: true };
-  let windows = [appWindow];
+  const capture = { ...win(48, -1440, -200, 1440, 900, 24), isScreenCapture: true };
+  let windows = [capture, overlay, appWindow];
   let bounds = { x: -1100, y: 68.92, width: 254, height: 262 };
   let falls = 0;
   const perch = new WindowPerch({
@@ -91,16 +102,16 @@ test('a perched pet stays supported through notifications but falls when its win
     move: (x, y) => { bounds = { ...bounds, x, y }; }, send() {}, save() {}, interruptWander() {}, fall() { falls++; },
   });
   t.after(() => perch.dispose());
-  perch.attach(perch.host.surfaces()[0]);
+  assert.equal(perch.nearby(), true, 'an active recording must not prevent placing the pet on a window');
   for (let i = 0; i < 3; i++) {
-    windows = [overlay, appWindow];
+    windows = [capture, overlay, appWindow];
     perch.tick();
-    assert.equal(perch.current?.id, appWindow.id, 'notification appearance retains support');
+    assert.equal(perch.current?.id, appWindow.id, 'overlays retain support');
     windows = [appWindow];
     perch.tick();
     assert.equal(falls, 0, 'notification dismissal does not trigger a fall');
   }
-  windows = [overlay];
+  windows = [capture, overlay];
   perch.tick();
   assert.equal(falls, 1, 'a notification does not keep a closed window alive');
   assert.equal(perch.current, null);
