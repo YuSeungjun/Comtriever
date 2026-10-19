@@ -3,7 +3,9 @@ const path = require('node:path');
 const zlib = require('node:zlib');
 
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-const SOURCE_ROOT = path.join(__dirname, '..', 'new_img');
+const SOURCE_ROOT = process.env.COMTRIEVER_SPRITE_SOURCE_DIR
+  ? path.resolve(process.env.COMTRIEVER_SPRITE_SOURCE_DIR)
+  : path.join(__dirname, '..', 'new_img');
 const SOURCE_DIR_NAME = '무제 폴더';
 const INTERACTION_SOURCE_DIR_NAME = '무제 폴더 2';
 const OUT_DIR = path.join(__dirname, '..', 'src', 'assets', 'retriever');
@@ -335,7 +337,20 @@ function cropFrame(image, frameIndex, sheet) {
 }
 
 function prepare() {
+  if (!fs.existsSync(SOURCE_ROOT)) {
+    throw new Error('Original artwork is kept locally, outside Git. Set COMTRIEVER_SPRITE_SOURCE_DIR to your artwork folder. The committed src/assets/retriever files are already ready for npm start and npm run dist.');
+  }
   const inputDirs = new Map();
+  // Validate all local inputs before replacing the committed runtime frames.
+  const inputs = sheets.map((sheet) => {
+    const sourceDirName = sheet.sourceDirName ?? SOURCE_DIR_NAME;
+    if (!inputDirs.has(sourceDirName)) inputDirs.set(sourceDirName, findSourceDir(sourceDirName));
+    const image = toRgbaImage(readPng(path.join(inputDirs.get(sourceDirName), sheet.file)));
+    if (image.width !== sheet.frameWidth * sheet.frameCount || image.height !== sheet.frameHeight) {
+      throw new Error(sheet.file + ' must be ' + (sheet.frameWidth * sheet.frameCount) + ' x ' + sheet.frameHeight + '; got ' + image.width + ' x ' + image.height + '.');
+    }
+    return { sheet, image };
+  });
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
   for (const file of fs.readdirSync(OUT_DIR)) {
@@ -344,17 +359,7 @@ function prepare() {
     }
   }
 
-  for (const sheet of sheets) {
-    const sourceDirName = sheet.sourceDirName ?? SOURCE_DIR_NAME;
-    if (!inputDirs.has(sourceDirName)) inputDirs.set(sourceDirName, findSourceDir(sourceDirName));
-    const inputDir = inputDirs.get(sourceDirName);
-    const sourcePath = path.join(inputDir, sheet.file);
-    const image = toRgbaImage(readPng(sourcePath));
-
-    if (image.width !== sheet.frameWidth * sheet.frameCount || image.height !== sheet.frameHeight) {
-      throw new Error(sheet.file + ' must be ' + (sheet.frameWidth * sheet.frameCount) + ' x ' + sheet.frameHeight + '; got ' + image.width + ' x ' + image.height + '.');
-    }
-
+  for (const { sheet, image } of inputs) {
     const frames = [];
     for (let frame = 0; frame < sheet.frameCount; frame += 1) {
       const croppedFrame = cropFrame(image, frame, sheet);

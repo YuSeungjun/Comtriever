@@ -8,3 +8,8 @@ build/*
 !build/.gitkeep
 !build/entitlements.mac.plist
 !build/entitlements.mac.inherit.plist
+
+# Local artwork sources and investigation notes; runtime assets live in src/assets.
+/img/
+/new_img/
+/docs/analysis/
